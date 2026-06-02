@@ -1,0 +1,19 @@
+// ============================================================
+// AJOUTER CE MODÈLE DANS votre fichier prisma/schema.prisma
+// ============================================================
+
+model SmartPosterSettings {
+  id                String   @id @default(uuid())
+  maxPostsPerDay    Int      @default(3)          // Nombre de propositions par jour (1-10)
+  enabled           Boolean  @default(true)        // Activation du smart-poster
+  scheduleHourStart Int      @default(7)           // Heure de début (0-23)
+  scheduleHourEnd   Int      @default(8)           // Heure de fin (0-23)
+  timezone          String   @default("Europe/Paris")
+  autoApprove       Boolean  @default(false)        // Publication automatique sans validation
+  topics            String   @default("IA, tech, marketing digital, entrepreneurship, data, productivité")
+  tone              String   @default("professionnel mais accessible")
+  language          String   @default("fr")
+  targetAudience    String   @default("entrepreneurs, CTO, managers tech")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
