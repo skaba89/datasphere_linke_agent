@@ -1,0 +1,31 @@
+{
+  "name": "datasphere-linke-agent",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build --webpack",
+    "start": "next start",
+    "lint": "next lint",
+    "postinstall": "prisma generate",
+    "worker:smart-poster": "tsx workers/worker-smart-poster.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.2",
+    "next": "^16.1.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "z-ai-web-dev-sdk": "latest",
+    "tsx": "^4.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "prisma": "^6.19.2",
+    "typescript": "^5.0.0"
+  }
+}
