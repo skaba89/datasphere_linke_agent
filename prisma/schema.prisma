@@ -1,0 +1,116 @@
+// Prisma Schema - DataSphere LinkedIn Agent
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// COMPTE LINKEDIN
+// ============================================
+model LinkedInAccount {
+  id                String   @id @default(uuid())
+  linkedinId        String   @unique
+  name              String
+  email             String?
+  avatarUrl         String?
+  accessToken       String
+  refreshToken      String?
+  tokenExpiresAt    DateTime?
+  isActive          Boolean  @default(true)
+  posts             Post[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// ============================================
+// POSTS
+// ============================================
+model Post {
+  id                String   @id @default(uuid())
+  accountId         String
+  account           LinkedInAccount @relation(fields: [accountId], references: [id])
+  title             String
+  content           String
+  hashtags          String?
+  imageUrl          String?
+  imagePrompt       String?
+  status            String   @default("draft") // draft, pending_approval, approved, published, scheduled, rejected
+  publishedAt       DateTime?
+  scheduledAt       DateTime?
+  linkedinPostId    String?
+  optimalTime       String?
+  qualityScore      Float?
+  format            String?
+  angle             String?
+  targetAudience    String?
+  engagementData    Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// ============================================
+// PARAMÈTRES SMART POSTER
+// ============================================
+model SmartPosterSettings {
+  id                String   @id @default(uuid())
+  maxPostsPerDay    Int      @default(3)
+  enabled           Boolean  @default(true)
+  scheduleHourStart Int      @default(7)
+  scheduleHourEnd   Int      @default(8)
+  timezone          String   @default("Europe/Paris")
+  autoApprove       Boolean  @default(false)
+  topics            String   @default("IA, tech, marketing digital, entrepreneurship, data, productivité")
+  tone              String   @default("professionnel mais accessible")
+  language          String   @default("fr")
+  targetAudience    String   @default("entrepreneurs, CTO, managers tech")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// ============================================
+// RÉSULTATS D'ENGAGEMENT
+// ============================================
+model EngagementMetrics {
+  id                String   @id @default(uuid())
+  postId            String?
+  likes             Int      @default(0)
+  comments          Int      @default(0)
+  shares            Int      @default(0)
+  impressions       Int      @default(0)
+  clicks            Int      @default(0)
+  recordedAt        DateTime @default(now())
+  post              Post?    @relation(fields: [postId], references: [id])
+}
+
+// ============================================
+// MISSIONS / SCOUT
+// ============================================
+model MissionScout {
+  id                String   @id @default(uuid())
+  targetUrl         String
+  platform          String
+  keywords          String?
+  maxResults        Int      @default(20)
+  status            String   @default("pending")
+  results           Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// ============================================
+// ANALYSE CONCURRENTIELLE
+// ============================================
+model CompetitorAnalysis {
+  id                String   @id @default(uuid())
+  competitorName    String
+  competitorUrl     String
+  analysisData      Json
+  insights          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}

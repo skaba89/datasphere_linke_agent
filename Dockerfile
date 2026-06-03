@@ -5,19 +5,19 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
+# Copy package.json AND prisma schema (needed for postinstall)
 COPY package.json ./
+COPY prisma ./prisma/
 RUN npm install
 
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/prisma ./prisma
 COPY . .
 
-# Generate Prisma client
-RUN npx prisma generate
-
-# Build Next.js
+# Build Next.js (prisma generate already ran in postinstall)
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
