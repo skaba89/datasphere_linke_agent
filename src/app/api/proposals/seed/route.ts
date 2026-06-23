@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { getCurrentUserId } from '@/lib/auth'
 
 const PROPOSALS = [
   {
@@ -78,8 +79,12 @@ const PROPOSALS = [
 
 export async function POST() {
   try {
-    // Delete existing one by one (SQLite compatible)
-    const existing = await db.postProposal.findMany({ select: { id: true } })
+    const userId = await getCurrentUserId()
+    // Delete existing one by one (SQLite compatible) - scope à l'utilisateur si authentifié
+    const existing = await db.postProposal.findMany({
+      where: userId ? { userId } : {},
+      select: { id: true },
+    })
     for (const p of existing) {
       await db.postProposal.delete({ where: { id: p.id } })
     }
@@ -87,7 +92,9 @@ export async function POST() {
     // Create new proposals one by one
     const created = []
     for (const data of PROPOSALS) {
-      const p = await db.postProposal.create({ data })
+      const p = await db.postProposal.create({
+        data: { ...data, userId: userId || null },
+      })
       created.push(p)
     }
 

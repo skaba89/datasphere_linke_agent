@@ -7,8 +7,83 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============================================================
+// AUTH & USERS
+// ============================================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String?
+  role          String    @default("user") // user | admin
+  plan          String    @default("free") // free | pro | business
+  trialEndsAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  linkedinAccounts LinkedInAccount[]
+  posts         PostProposal[]  @relation("UserPosts")
+  settings      SmartPosterSettings?
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+// ============================================================
+// LINKEDIN INTEGRATION
+// ============================================================
+
+model LinkedInAccount {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String   // LinkedIn person URN (urn:li:person:...) or organization URN
+  displayName    String
+  email          String?
+  pictureUrl     String?
+  headline       String?
+  accessToken    String
+  refreshToken   String?
+  tokenExpiresAt DateTime?
+  scopes         String?
+  status         String   @default("active") // active | disabled | expired | revoked
+  lastSyncAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // ⚠️ Contrainte critique : un seul compte LinkedIn actif par (user, organization)
+  // Quand un compte est désactivé, il reste en base -> create() échouerait
+  // -> Il faut utiliser upsert() ou updateMany + where status != 'active'
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([status])
+}
+
+// ============================================================
+// APP DATA
+// ============================================================
+
 model SmartPosterSettings {
   id                String   @id @default(cuid())
+  userId            String   @unique
   maxPostsPerDay    Int      @default(3)
   enabled           Boolean  @default(true)
   scheduleHourStart Int      @default(7)
@@ -21,10 +96,13 @@ model SmartPosterSettings {
   targetAudience    String   @default("entrepreneurs, CTO, managers tech")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model PostProposal {
   id             String   @id @default(cuid())
+  userId          String?
   title          String
   content        String
   hashtags       String
@@ -33,14 +111,21 @@ model PostProposal {
   targetAudience String
   qualityScore   Float
   optimalTime    String
-  status         String   @default("pending")
+  status         String   @default("pending") // pending | approved | published | rejected | failed
   engagementEst  String
+  linkedinPostId String?  // ID retourné par LinkedIn après publication
+  publishedAt    DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  user           User?    @relation("UserPosts", fields: [userId], references: [id], onDelete: SetNull)
+  @@index([userId])
+  @@index([status])
 }
 
 model EngagementMetric {
   id        String   @id @default(cuid())
+  userId    String?
   date      String
   likes     Int      @default(0)
   comments  Int      @default(0)
@@ -48,4 +133,7 @@ model EngagementMetric {
   views     Int      @default(0)
   clicks    Int      @default(0)
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([date])
 }

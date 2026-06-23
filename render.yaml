@@ -1,0 +1,35 @@
+# DataSphere - Configuration Render
+# https://render.com/docs/blueprint-spec
+# Déploiement: docker + persistent disk pour SQLite
+
+services:
+  - type: web
+    name: datasphere
+    runtime: docker
+    plan: starter  # 512MB / 0.1 CPU - suffisant pour démarrer
+    region: frankfurt  # Europe - plus proche de vos utilisateurs
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false  # à définir manuellement (file:./db.sqlite ou PostgreSQL)
+      - key: DATASPHERE_AUTH_SECRET
+        generateValue: true  # Render génère un secret aléatoire
+      - key: DEMO_MODE
+        value: 'true'  # permet de tester sans vraies creds LinkedIn
+      - key: LINKEDIN_CLIENT_ID
+        sync: false
+      - key: LINKEDIN_CLIENT_SECRET
+        sync: false
+      - key: LINKEDIN_REDIRECT_URI
+        sync: false
+    disk:
+      name: datasphere-data
+      mountPath: /app/data
+      sizeGB: 1  # SQLite + uploads

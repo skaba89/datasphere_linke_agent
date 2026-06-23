@@ -1,9 +1,14 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { getCurrentUserId } from '@/lib/auth'
 
 export async function GET() {
   try {
+    const userId = await getCurrentUserId()
+    const where = userId ? { userId } : {}
+
     let metrics = await db.engagementMetric.findMany({
+      where,
       orderBy: { date: 'asc' },
     })
 
@@ -15,6 +20,7 @@ export async function GET() {
         const dateStr = date.toISOString().split('T')[0]
         await db.engagementMetric.create({
           data: {
+            userId: userId || null,
             date: dateStr,
             likes: Math.floor(50 + Math.random() * 300 + (13 - i) * 10),
             comments: Math.floor(10 + Math.random() * 80 + (13 - i) * 3),
@@ -24,7 +30,10 @@ export async function GET() {
           },
         })
       }
-      metrics = await db.engagementMetric.findMany({ orderBy: { date: 'asc' } })
+      metrics = await db.engagementMetric.findMany({
+        where,
+        orderBy: { date: 'asc' },
+      })
     }
 
     return NextResponse.json({ success: true, data: metrics })
