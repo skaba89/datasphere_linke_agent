@@ -1,27 +1,26 @@
 FROM node:20-alpine AS base
 
-# Install dependencies only when needed
+# Install dependencies
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package.json AND prisma schema (needed for postinstall)
 COPY package.json ./
 COPY prisma ./prisma/
-RUN npm install
+RUN npm install --ignore-scripts && npx prisma generate
 
-# Rebuild the source code only when needed
+# Build
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/prisma ./prisma
+COPY --from=deps /app/node_modules/.prisma ./node_modules/.prisma
 COPY . .
 
-# Build Next.js (prisma generate already ran in postinstall)
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-# Production image
+# Production
 FROM base AS runner
 WORKDIR /app
 
@@ -31,9 +30,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy built application
+# Copy built app
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma

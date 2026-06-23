@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+.gitignore
+skills/
+upload/
+download/
+*.md
+!prisma/
