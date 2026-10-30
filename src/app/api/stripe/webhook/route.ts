@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getStripe } from '@/lib/stripe'
+import { createTeamForBusinessUser } from '@/lib/teams'
 import Stripe from 'stripe'
 
 // ============================================================
@@ -64,6 +65,19 @@ export async function POST(request: Request) {
             },
           })
           console.log(`[Stripe] User ${userId} upgraded to ${plan}`)
+
+          // ✅ Si Business : créer automatiquement la team
+          if (plan === 'business') {
+            try {
+              const user = await db.user.findUnique({ where: { id: userId } })
+              if (user) {
+                await createTeamForBusinessUser(userId, user.name || user.email)
+                console.log(`[Stripe] Team created for user ${userId}`)
+              }
+            } catch (err: any) {
+              console.warn(`[Stripe] Failed to create team for ${userId}:`, err.message)
+            }
+          }
         }
         break
       }

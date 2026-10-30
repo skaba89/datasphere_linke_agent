@@ -47,6 +47,11 @@ services:
       # Cron secret (pour protéger /api/cron/* endpoints)
       - key: CRON_SECRET
         generateValue: true
+      # Email (Resend) - optionnel, fallback console si manquant
+      - key: RESEND_API_KEY
+        sync: false
+      - key: FROM_EMAIL
+        value: "DataSphere <noreply@datasphere.app>"
 
 # Base de données PostgreSQL managée par Render
 databases:

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { setSessionCookie } from '@/lib/auth'
+import { sendWelcomeEmail } from '@/lib/email'
+import { applyRateLimit, RATE_LIMITS, rateLimitHeaders } from '@/lib/rate-limit'
 import bcrypt from 'bcryptjs'
 
 // Validation email RFC simple
@@ -8,6 +10,20 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export async function POST(request: Request) {
   try {
+    // Rate limiting : 3 inscriptions / heure / IP
+    const rl = applyRateLimit(request, 'register', RATE_LIMITS.register)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Trop de tentatives. Réessayez plus tard.' },
+        {
+          status: 429,
+          headers: {
+            ...rateLimitHeaders(rl),
+            'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)),
+          },
+        }
+      )
+    }
     const { email, password, name } = await request.json()
 
     if (!email || !password) {
@@ -65,6 +81,11 @@ export async function POST(request: Request) {
     })
 
     await setSessionCookie(user.id)
+
+    // ✅ Email de bienvenue (async, ne bloque pas la réponse)
+    sendWelcomeEmail(user.email, user.name).catch((err) =>
+      console.warn('[Register] Welcome email failed:', err.message)
+    )
 
     return NextResponse.json({
       success: true,

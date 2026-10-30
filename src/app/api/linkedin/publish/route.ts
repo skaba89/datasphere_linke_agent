@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUserId } from '@/lib/auth'
 import { checkPlanLimit } from '@/lib/plans'
+import { applyRateLimit, RATE_LIMITS, rateLimitHeaders } from '@/lib/rate-limit'
 
 // ============================================================
 // POST /api/linkedin/publish
@@ -37,6 +38,21 @@ export async function POST(request: Request) {
           remaining: limitCheck.remaining,
         },
         { status: 402 }
+      )
+    }
+
+    // Rate limiting : 20 publications / heure / user
+    const rl = applyRateLimit(request, 'li-publish', RATE_LIMITS.linkedinPublish, userId)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Trop de publications. Réessayez plus tard.' },
+        {
+          status: 429,
+          headers: {
+            ...rateLimitHeaders(rl),
+            'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)),
+          },
+        }
       )
     }
 

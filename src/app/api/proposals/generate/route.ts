@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUserId } from '@/lib/auth'
 import { generateLinkedInPosts } from '@/lib/ai'
-import { checkPlanLimit, PLAN_LIMITS } from '@/lib/plans'
+import { checkPlanLimit } from '@/lib/plans'
+import { applyRateLimit, RATE_LIMITS, rateLimitHeaders } from '@/lib/rate-limit'
 
 // ============================================================
 // POST /api/proposals/generate
@@ -18,6 +19,21 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, error: 'Non authentifié' },
         { status: 401 }
+      )
+    }
+
+    // Rate limiting IA : 10 générations / heure / user
+    const rl = applyRateLimit(request, 'ai-generate', RATE_LIMITS.aiGenerate, userId)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { success: false, error: `Trop de générations. Réessayez dans ${Math.ceil((rl.resetAt - Date.now()) / 60000)} min.` },
+        {
+          status: 429,
+          headers: {
+            ...rateLimitHeaders(rl),
+            'Retry-After': String(Math.ceil((rl.resetAt - Date.now()) / 1000)),
+          },
+        }
       )
     }
 

@@ -379,6 +379,20 @@ function DashboardSidebar({ items, activeTab, onNav, onBack, user, onLogout }: {
       </nav>
 
       <div className="p-3 border-t border-slate-100 space-y-2">
+        <a
+          href="/team"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all"
+        >
+          <Users className="h-4.5 w-4.5 text-slate-400" />
+          Mon équipe
+        </a>
+        <a
+          href="/pricing"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all"
+        >
+          <Crown className="h-4.5 w-4.5 text-slate-400" />
+          Abonnement
+        </a>
         <button
           onClick={onLogout}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all"
@@ -1807,9 +1821,10 @@ function LandingPage({ onLogin, onCTA }: { onLogin: () => void; onCTA: () => voi
             <div>
               <h4 className="font-semibold text-white text-sm mb-4">Légal</h4>
               <ul className="space-y-2.5">
-                {['Confidentialité', 'CGU', 'Mentions légales', 'RGPD'].map((l) => (
-                  <li key={l}><a href="#" className="text-sm text-slate-400 hover:text-white transition-colors">{l}</a></li>
-                ))}
+                <li><a href="/legal/terms" className="text-sm text-slate-400 hover:text-white transition-colors">CGU</a></li>
+                <li><a href="/legal/privacy" className="text-sm text-slate-400 hover:text-white transition-colors">Confidentialité</a></li>
+                <li><a href="/legal/notice" className="text-sm text-slate-400 hover:text-white transition-colors">Mentions légales</a></li>
+                <li><a href="/pricing" className="text-sm text-slate-400 hover:text-white transition-colors">Tarifs</a></li>
               </ul>
             </div>
           </div>

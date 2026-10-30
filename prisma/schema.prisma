@@ -33,6 +33,7 @@ model User {
   stripeSubscriptionId       String?
   stripeSubscriptionStatus   String?
 
+  // Pour invitations team : email de l'invité (peut être null si user créé directement)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -41,8 +42,69 @@ model User {
   posts         PostProposal[]  @relation("UserPosts")
   settings      SmartPosterSettings?
 
+  // Multi-utilisateurs (Teams)
+  teamMemberships  TeamMember[]
+  teamInvitations  TeamInvitation[] @relation("InvitedUser")
+  sentInvitations  TeamInvitation[] @relation("InvitedBy")
+  ownedTeams       Team[]           @relation("TeamOwner")
+
   @@index([email])
   @@index([plan])
+}
+
+// ============================================================
+// TEAMS (Multi-utilisateurs - plan Business)
+// ============================================================
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  ownerId     String
+  plan        String   @default("business") // hérite du plan Business
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner       User     @relation("TeamOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members     TeamMember[]
+  invitations TeamInvitation[]
+
+  @@index([ownerId])
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  role      String   @default("member") // owner | admin | member
+  joinedAt  DateTime @default(now())
+
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+}
+
+model TeamInvitation {
+  id          String    @id @default(cuid())
+  teamId      String
+  email       String
+  token       String    @unique // token d'invitation signé
+  role        String    @default("member") // admin | member
+  status      String    @default("pending") // pending | accepted | declined | revoked
+  invitedById String
+  invitedUserId String? // set si user existe déjà
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  team        Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  invitedBy   User      @relation("InvitedBy", fields: [invitedById], references: [id])
+  invitedUser User?     @relation("InvitedUser", fields: [invitedUserId], references: [id])
+
+  @@index([teamId])
+  @@index([email])
+  @@index([status])
 }
 
 model Account {
