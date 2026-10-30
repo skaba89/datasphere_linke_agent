@@ -90,7 +90,7 @@ export async function POST() {
     }
 
     // Create new proposals one by one
-    const created = []
+    const created: Awaited<ReturnType<typeof db.postProposal.create>>[] = []
     for (const data of PROPOSALS) {
       const p = await db.postProposal.create({
         data: { ...data, userId: userId || null },

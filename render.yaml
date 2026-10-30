@@ -1,6 +1,6 @@
 # DataSphere - Configuration Render
 # https://render.com/docs/blueprint-spec
-# Déploiement: docker + persistent disk pour SQLite
+# Déploiement: docker + PostgreSQL + persistent disk pour uploads
 
 services:
   - type: web
@@ -18,11 +18,13 @@ services:
       - key: PORT
         value: 10000
       - key: DATABASE_URL
-        sync: false  # à définir manuellement (file:./db.sqlite ou PostgreSQL)
+        fromDatabase:
+          name: datasphere-db
+          property: connectionString
       - key: DATASPHERE_AUTH_SECRET
         generateValue: true  # Render génère un secret aléatoire
       - key: DEMO_MODE
-        value: 'true'  # permet de tester sans vraies creds LinkedIn
+        value: 'true'  # passer à 'false' une fois OAuth LinkedIn branché
       - key: LINKEDIN_CLIENT_ID
         sync: false
       - key: LINKEDIN_CLIENT_SECRET
@@ -30,6 +32,13 @@ services:
       - key: LINKEDIN_REDIRECT_URI
         sync: false
     disk:
-      name: datasphere-data
+      name: datasphere-uploads
       mountPath: /app/data
-      sizeGB: 1  # SQLite + uploads
+      sizeGB: 1
+
+# Base de données PostgreSQL managée par Render
+databases:
+  - name: datasphere-db
+    plan: free  # 1GB, 90 jours gratuits - suffisant pour démarrer
+    region: frankfurt
+    ipAllowList: []  # accessible seulement par les services Render

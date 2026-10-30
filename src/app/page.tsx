@@ -48,6 +48,17 @@ interface Settings {
   targetAudience: string
 }
 
+interface CurrentUser {
+  id: string
+  email: string
+  name: string | null
+  role: string
+  plan: string
+  trialEndsAt: string | null
+  trialActive: boolean
+  createdAt: string
+}
+
 interface Proposal {
   id: string
   title: string
@@ -86,11 +97,25 @@ export default function Home() {
   const [generating, setGenerating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [proposalFilter, setProposalFilter] = useState('all')
+  const [user, setUser] = useState<CurrentUser | null>(null)
 
   // ============================================================
   // FETCH FUNCTIONS
   // ============================================================
   const [dataLoaded, setDataLoaded] = useState(false)
+
+  // Au mount : vérifier si l'utilisateur est connecté
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.data) {
+          setUser(d.data)
+          setView('dashboard')
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const loadDashboardData = useCallback(async () => {
     const [settingsRes, proposalsRes, metricsRes] = await Promise.all([
@@ -110,11 +135,16 @@ export default function Home() {
   }, [])
 
   const switchToDashboard = useCallback(() => {
+    // Si non connecté, rediriger vers login
+    if (!user) {
+      window.location.href = '/login'
+      return
+    }
     if (!dataLoaded) {
       loadDashboardData()
     }
     setView('dashboard')
-  }, [dataLoaded, loadDashboardData])
+  }, [dataLoaded, loadDashboardData, user])
 
   const refetchProposals = useCallback(async () => {
     const r = await fetch('/api/proposals')
@@ -149,6 +179,13 @@ export default function Home() {
     setSidebarOpen(false)
   }
 
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    setUser(null)
+    setView('landing')
+    setDataLoaded(false)
+  }
+
   // ============================================================
   // LANDING PAGE
   // ============================================================
@@ -173,14 +210,14 @@ export default function Home() {
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200 flex-col">
-        <DashboardSidebar items={sidebarItems} activeTab={activeTab} onNav={handleNavClick} onBack={() => setView('landing')} />
+        <DashboardSidebar items={sidebarItems} activeTab={activeTab} onNav={handleNavClick} onBack={() => setView('landing')} user={user} onLogout={handleLogout} />
       </aside>
 
       {/* Mobile Sidebar */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <SheetContent side="left" className="w-72 p-0">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <DashboardSidebar items={sidebarItems} activeTab={activeTab} onNav={handleNavClick} onBack={() => { setView('landing'); setSidebarOpen(false) }} />
+          <DashboardSidebar items={sidebarItems} activeTab={activeTab} onNav={handleNavClick} onBack={() => { setView('landing'); setSidebarOpen(false) }} user={user} onLogout={handleLogout} />
         </SheetContent>
       </Sheet>
 
@@ -198,7 +235,7 @@ export default function Home() {
           <AnimatePresence mode="wait">
             {activeTab === 'overview' && (
               <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-                <OverviewTab proposals={proposals} metrics={metrics} />
+                <OverviewTab proposals={proposals} metrics={metrics} user={user} />
               </motion.div>
             )}
             {activeTab === 'smart-poster' && (
@@ -225,7 +262,7 @@ export default function Home() {
             )}
             {activeTab === 'settings' && (
               <motion.div key="settings" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-                <SettingsTab />
+                <SettingsTab user={user} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -238,12 +275,23 @@ export default function Home() {
 // ============================================================
 // DASHBOARD SIDEBAR COMPONENT
 // ============================================================
-function DashboardSidebar({ items, activeTab, onNav, onBack }: {
+function DashboardSidebar({ items, activeTab, onNav, onBack, user, onLogout }: {
   items: { id: string; label: string; icon: React.ComponentType<{ className?: string }> }[]
   activeTab: string
   onNav: (tab: string) => void
   onBack: () => void
+  user: CurrentUser | null
+  onLogout: () => void
 }) {
+  // Initiales à partir du nom ou de l'email
+  const displayName = user?.name || user?.email || 'Utilisateur'
+  const initials = displayName
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0]?.toUpperCase() || '')
+    .join('') || 'U'
+
   return (
     <div className="flex flex-col h-full">
       <div className="px-6 py-5 flex items-center gap-2 border-b border-slate-100">
@@ -276,19 +324,28 @@ function DashboardSidebar({ items, activeTab, onNav, onBack }: {
 
       <div className="p-3 border-t border-slate-100 space-y-2">
         <button
-          onClick={onBack}
+          onClick={onLogout}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all"
         >
           <LogOut className="h-4.5 w-4.5 text-slate-400" />
+          Déconnexion
+        </button>
+        <button
+          onClick={onBack}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all"
+        >
+          <ArrowRight className="h-4.5 w-4.5 text-slate-400 rotate-180" />
           Retour au site
         </button>
         <div className="flex items-center gap-3 px-3 py-2">
           <Avatar className="h-8 w-8">
-            <AvatarFallback className="bg-emerald-100 text-emerald-700 text-xs font-semibold">AD</AvatarFallback>
+            <AvatarFallback className="bg-emerald-100 text-emerald-700 text-xs font-semibold">{initials}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-900 truncate">Alexandre Dupont</p>
-            <p className="text-xs text-slate-500 truncate">alex@datasphere.fr</p>
+            <p className="text-sm font-medium text-slate-900 truncate">{displayName}</p>
+            <p className="text-xs text-slate-500 truncate">
+              {user ? `Plan ${user.plan}${user.trialActive ? ' · Essai' : ''}` : 'Non connecté'}
+            </p>
           </div>
         </div>
       </div>
@@ -299,24 +356,47 @@ function DashboardSidebar({ items, activeTab, onNav, onBack }: {
 // ============================================================
 // OVERVIEW TAB
 // ============================================================
-function OverviewTab({ proposals, metrics }: { proposals: Proposal[]; metrics: Metric[] }) {
+function OverviewTab({ proposals, metrics, user }: { proposals: Proposal[]; metrics: Metric[]; user: CurrentUser | null }) {
   const recentProposals = proposals.slice(0, 3)
   const chartData = metrics.slice(-7).map((m) => ({
     name: new Date(m.date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' }),
     engagement: m.likes + m.comments + m.shares,
   }))
 
+  // ✅ Vraies stats calculées depuis les metrics (au lieu de valeurs en dur)
+  const last14Days = metrics.slice(-14)
+  const totalPosts = proposals.length
+  const totalLikes = last14Days.reduce((a, m) => a + m.likes, 0)
+  const totalComments = last14Days.reduce((a, m) => a + m.comments, 0)
+  const totalShares = last14Days.reduce((a, m) => a + m.shares, 0)
+  const totalViews = last14Days.reduce((a, m) => a + m.views, 0)
+  const totalEngagement = totalLikes + totalComments + totalShares
+  const engagementRate = totalViews > 0 ? ((totalEngagement / totalViews) * 100).toFixed(1) : '0.0'
+
+  // Variation vs période précédente (si on a au moins 28 jours)
+  const previous14Days = metrics.slice(-28, -14)
+  const prevEngagement = previous14Days.reduce((a, m) => a + m.likes + m.comments + m.shares, 0)
+  const engagementChange = prevEngagement > 0
+    ? `${totalEngagement > prevEngagement ? '+' : ''}${(((totalEngagement - prevEngagement) / prevEngagement) * 100).toFixed(0)}%`
+    : '—'
+  const prevViews = previous14Days.reduce((a, m) => a + m.views, 0)
+  const viewsChange = prevViews > 0
+    ? `${totalViews > prevViews ? '+' : ''}${(((totalViews - prevViews) / prevViews) * 100).toFixed(0)}%`
+    : '—'
+
+  const firstName = user?.name?.split(' ')[0] || (user?.email ? user.email.split('@')[0] : 'cher utilisateur')
+
   const statCards = [
-    { label: 'Posts ce mois', value: '47', change: '+12%', icon: FileText, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: "Taux d'engagement", value: '8.4%', change: '+2.1%', icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Nouveaux abonnés', value: '+312', change: '+28%', icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { label: 'Portée totale', value: '125K', change: '+45%', icon: Eye, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Posts générés', value: String(totalPosts), change: totalPosts > 0 ? 'Actifs' : '—', icon: FileText, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: "Taux d'engagement", value: `${engagementRate}%`, change: engagementChange, icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Interactions (14j)', value: String(totalEngagement), change: engagementChange, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Portée (14j)', value: totalViews >= 1000 ? `${(totalViews / 1000).toFixed(1)}K` : String(totalViews), change: viewsChange, icon: Eye, color: 'text-emerald-600', bg: 'bg-emerald-50' },
   ]
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Bonjour Alexandre 👋</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Bonjour {firstName} 👋</h1>
         <p className="text-slate-500 mt-1">Voici un aperçu de votre activité LinkedIn</p>
       </div>
 
@@ -908,7 +988,13 @@ function AnalyticsTab({ metrics }: { metrics: Metric[] }) {
 // ============================================================
 // SETTINGS TAB
 // ============================================================
-function SettingsTab() {
+function SettingsTab({ user }: { user: CurrentUser | null }) {
+  const displayName = user?.name || ''
+  const email = user?.email || ''
+  const plan = user?.plan || 'free'
+  const trialActive = user?.trialActive
+  const trialEndsAt = user?.trialEndsAt ? new Date(user.trialEndsAt).toLocaleDateString('fr-FR') : null
+
   return (
     <div className="space-y-6">
       <div>
@@ -929,11 +1015,11 @@ function SettingsTab() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-sm font-medium text-slate-700">Nom complet</Label>
-              <Input defaultValue="Alexandre Dupont" />
+              <Input defaultValue={displayName} placeholder="Votre nom" />
             </div>
             <div className="space-y-2">
               <Label className="text-sm font-medium text-slate-700">Email</Label>
-              <Input defaultValue="alex@datasphere.fr" type="email" />
+              <Input defaultValue={email} type="email" disabled />
             </div>
           </div>
           <Button className="bg-emerald-600 hover:bg-emerald-700 text-white mt-2">Mettre à jour</Button>
@@ -945,19 +1031,48 @@ function SettingsTab() {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             Abonnement
-            <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Pro</Badge>
+            <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 uppercase">{plan}</Badge>
+            {trialActive && (
+              <Badge variant="outline" className="text-amber-700 border-amber-300 bg-amber-50">
+                Essai
+              </Badge>
+            )}
           </CardTitle>
           <CardDescription>Votre plan actuel et la facturation</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <p className="text-lg font-semibold text-slate-900">Plan Pro</p>
-              <p className="text-sm text-slate-500">79€/mois · Renouvellement le 1er juillet 2025</p>
+              <p className="text-lg font-semibold text-slate-900 capitalize">Plan {plan}</p>
+              <p className="text-sm text-slate-500">
+                {trialActive && trialEndsAt
+                  ? `Essai gratuit jusqu'au ${trialEndsAt}`
+                  : plan === 'free'
+                  ? 'Plan gratuit — limites applicables'
+                  : `Renouvellement mensuel`}
+              </p>
               <div className="flex flex-wrap gap-2 mt-2">
-                <Badge variant="secondary" className="text-xs">10 posts/jour</Badge>
-                <Badge variant="secondary" className="text-xs">Analytics avancés</Badge>
-                <Badge variant="secondary" className="text-xs">Support prioritaire</Badge>
+                {plan === 'free' && (
+                  <>
+                    <Badge variant="secondary" className="text-xs">3 posts/jour</Badge>
+                    <Badge variant="secondary" className="text-xs">1 compte LinkedIn</Badge>
+                  </>
+                )}
+                {plan === 'pro' && (
+                  <>
+                    <Badge variant="secondary" className="text-xs">20 posts/jour</Badge>
+                    <Badge variant="secondary" className="text-xs">3 comptes LinkedIn</Badge>
+                    <Badge variant="secondary" className="text-xs">Smart Poster IA</Badge>
+                    <Badge variant="secondary" className="text-xs">Support prioritaire</Badge>
+                  </>
+                )}
+                {plan === 'business' && (
+                  <>
+                    <Badge variant="secondary" className="text-xs">Posts illimités</Badge>
+                    <Badge variant="secondary" className="text-xs">Multi-utilisateurs</Badge>
+                    <Badge variant="secondary" className="text-xs">White-label</Badge>
+                  </>
+                )}
               </div>
             </div>
             <Button variant="outline">Changer de plan</Button>
@@ -1085,7 +1200,7 @@ function LandingPage({ onLogin, onCTA }: { onLogin: () => void; onCTA: () => voi
     visible: (i: number) => ({
       opacity: 1,
       y: 0,
-      transition: { delay: i * 0.1, duration: 0.6, ease: 'easeOut' },
+      transition: { delay: i * 0.1, duration: 0.6, ease: 'easeOut' as const },
     }),
   }
 

@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { setSessionCookie } from '@/lib/auth'
-import { createHash, randomBytes } from 'crypto'
+import bcrypt from 'bcryptjs'
 
-function hashPassword(password: string, salt: string): string {
-  return createHash('sha256').update(`${salt}:${password}`).digest('hex')
-}
+// Validation email RFC simple
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export async function POST(request: Request) {
   try {
@@ -18,6 +17,13 @@ export async function POST(request: Request) {
       )
     }
 
+    if (!EMAIL_RE.test(email)) {
+      return NextResponse.json(
+        { success: false, error: 'Email invalide' },
+        { status: 400 }
+      )
+    }
+
     if (password.length < 8) {
       return NextResponse.json(
         { success: false, error: 'Mot de passe trop court (8 caractères min.)' },
@@ -25,7 +31,15 @@ export async function POST(request: Request) {
       )
     }
 
-    const existing = await db.user.findUnique({ where: { email: email.toLowerCase() } })
+    if (password.length > 128) {
+      return NextResponse.json(
+        { success: false, error: 'Mot de passe trop long (128 caractères max.)' },
+        { status: 400 }
+      )
+    }
+
+    const normalizedEmail = email.toLowerCase().trim()
+    const existing = await db.user.findUnique({ where: { email: normalizedEmail } })
     if (existing) {
       return NextResponse.json(
         { success: false, error: 'Cet email est déjà utilisé' },
@@ -33,8 +47,8 @@ export async function POST(request: Request) {
       )
     }
 
-    const salt = randomBytes(16).toString('hex')
-    const passwordHash = hashPassword(password, salt)
+    // ✅ bcrypt avec cost factor 12 (sécurisé, ~250ms par hash)
+    const passwordHash = await bcrypt.hash(password, 12)
 
     // Trial 14 jours
     const trialEndsAt = new Date()
@@ -42,9 +56,9 @@ export async function POST(request: Request) {
 
     const user = await db.user.create({
       data: {
-        email: email.toLowerCase(),
-        name: name || null,
-        passwordHash: `${salt}:${passwordHash}`,
+        email: normalizedEmail,
+        name: name?.trim() || null,
+        passwordHash,
         plan: 'pro',
         trialEndsAt,
       },

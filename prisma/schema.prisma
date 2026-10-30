@@ -2,7 +2,22 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// ============================================================
+// DataSphere - Schéma Prisma
+//
+// Provider: SQLite (dev local) ou PostgreSQL (production Render)
+//
+// Pour basculer en PostgreSQL :
+//   1. Changer provider = "postgresql"
+//   2. Régénérer: npx prisma generate && npx prisma migrate dev --name pg-init
+//   3. Pusher le schema: npx prisma migrate deploy
+//
+// Toutes les colonnes utilisent String (pas d'enum natif) pour rester
+// compatibles SQLite + PostgreSQL sans changement de schéma.
+// ============================================================
+
 datasource db {
+  // Valeurs possibles: "sqlite" (dev) ou "postgresql" (prod)
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }

@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUserId } from '@/lib/auth'
 
+// ============================================================
+// GET /api/proposals
+// Liste les propositions de l'utilisateur courant
+// ============================================================
 export async function GET() {
   try {
     const userId = await getCurrentUserId()
@@ -24,6 +28,8 @@ export async function GET() {
 // ============================================================
 // POST /api/proposals
 // Crée une nouvelle proposition de post (générée par IA ou manuelle)
+// ⚠️ Le status est forcé à 'pending' (anti-bypass : un client ne peut
+//    pas créer une proposal déjà 'published' en contournant la validation)
 // ============================================================
 export async function POST(request: Request) {
   try {
@@ -52,13 +58,72 @@ export async function POST(request: Request) {
         qualityScore: typeof body.qualityScore === 'number' ? body.qualityScore : 0,
         optimalTime: body.optimalTime || '',
         engagementEst: body.engagementEst || '',
-        status: body.status || 'pending',
+        status: 'pending', // ✅ Toujours 'pending' à la création
       },
     })
 
     return NextResponse.json({ success: true, data: proposal }, { status: 201 })
   } catch (error: any) {
     console.error('[POST /api/proposals]', error)
+    return NextResponse.json(
+      { success: false, error: error.message ?? 'Erreur serveur' },
+      { status: 500 }
+    )
+  }
+}
+
+// ============================================================
+// PATCH /api/proposals
+// Met à jour le statut d'une proposition (approve/reject/publish)
+// Body: { id: string, status: 'approved' | 'rejected' | 'published' | 'pending' }
+// ============================================================
+export async function PATCH(request: Request) {
+  try {
+    const userId = await getCurrentUserId()
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'Non authentifié' },
+        { status: 401 }
+      )
+    }
+
+    const body = await request.json()
+    const { id, status } = body
+
+    if (!id || !status) {
+      return NextResponse.json(
+        { success: false, error: 'Champs requis: id, status' },
+        { status: 400 }
+      )
+    }
+
+    const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'published', 'failed']
+    if (!ALLOWED_STATUSES.includes(status)) {
+      return NextResponse.json(
+        { success: false, error: `Status invalide. Autorisés: ${ALLOWED_STATUSES.join(', ')}` },
+        { status: 400 }
+      )
+    }
+
+    // Vérifier l'appartenance
+    const existing = await db.postProposal.findFirst({
+      where: { id, userId },
+    })
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: 'Proposition introuvable' },
+        { status: 404 }
+      )
+    }
+
+    const updated = await db.postProposal.update({
+      where: { id },
+      data: { status },
+    })
+
+    return NextResponse.json({ success: true, data: updated })
+  } catch (error: any) {
+    console.error('[PATCH /api/proposals]', error)
     return NextResponse.json(
       { success: false, error: error.message ?? 'Erreur serveur' },
       { status: 500 }
