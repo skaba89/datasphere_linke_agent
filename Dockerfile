@@ -1,11 +1,10 @@
 FROM node:20-alpine AS base
 
 # ============================================================
-# DataSphere - Dockerfile optimisé pour Render
+# DataSphere - Dockerfile production (Render)
+# - PostgreSQL
+# - prisma migrate deploy au démarrage
 # - Port 10000
-# - Build: npx next build --webpack
-# - prisma migrate deploy au démarrage (create tables auto)
-# - PM2 optionnel (via ecosystem.config.cjs) mais inutile sur Render
 # ============================================================
 
 FROM base AS deps
@@ -24,9 +23,7 @@ COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npx prisma generate
-# Build avec --webpack
 RUN npx next build --webpack
-# Copier les assets statiques et public dans standalone
 RUN cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/
 
 FROM base AS runner
@@ -40,7 +37,6 @@ RUN apk add --no-cache openssl
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copier le code de production
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
@@ -48,15 +44,14 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/stripe ./node_modules/stripe
+COPY --from=builder /app/node_modules/z-ai-web-dev-sdk ./node_modules/z-ai-web-dev-sdk
+COPY --from=builder /app/node_modules/bcryptjs ./node_modules/bcryptjs
 COPY --from=builder /app/package.json ./package.json
-
-# Créer le dossier data avec bonnes permissions (pour SQLite persistent)
-RUN mkdir -p /app/data && chown nextjs:nodejs /app/data
 
 USER nextjs
 EXPOSE 10000
 
 # ✅ Au démarrage : migrate deploy + start server
-# - migrate deploy applique les migrations en attente (idempotent)
-# - si DATABASE_URL pointe vers /app/data/dev.sqlite, le disque Render persiste
+# PostgreSQL : prisma migrate deploy applique les migrations en attente
 CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]

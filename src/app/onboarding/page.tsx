@@ -49,29 +49,16 @@ export default function OnboardingPage() {
 
   const connectLinkedIn = async () => {
     setConnecting(true)
-    // En production : rediriger vers LinkedIn OAuth
-    // Pour la démo : on simule la connexion
     try {
-      // Simulation : enregistrer un compte fictif
-      const res = await fetch('/api/linkedin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          organizationId: `urn:li:person:demo-${Date.now()}`,
-          displayName: 'Marie Dupont',
-          email: 'marie@demo.com',
-          headline: 'CEO @ TechStartup',
-          accessToken: 'demo-token-' + Date.now(),
-          scopes: 'r_liteprofile w_member_social r_organization_social',
-        }),
-      })
+      // 1. Demander l'URL d'autorisation LinkedIn au backend
+      const res = await fetch('/api/linkedin/auth')
       const data = await res.json()
       if (!data.success) throw new Error(data.error)
-      setLinkedinConnected(true)
-      toast.success('Compte LinkedIn connecté !')
+
+      // 2. Rediriger vers LinkedIn OAuth (vraie page LinkedIn)
+      window.location.href = data.data.authUrl
     } catch (err: any) {
       toast.error(err.message)
-    } finally {
       setConnecting(false)
     }
   }
@@ -79,33 +66,16 @@ export default function OnboardingPage() {
   const generatePost = async () => {
     setGenerating(true)
     try {
-      const res = await fetch('/api/proposals', {
+      // ✅ Vraie génération IA via /api/proposals/generate
+      const res = await fetch('/api/proposals/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: 'Mon premier post généré par DataSphere',
-          content: `🚀 Je teste DataSphere, l'IA qui automatise ma présence LinkedIn.
-
-Mon objectif : publier ${profile.postsPerDay}x/jour sur "${profile.topics}" avec un ton ${profile.tone.toLowerCase()}.
-
-Audience cible : ${profile.targetAudience}.
-
-Suivez-moi pour voir l'évolution de mon engagement sur 30 jours ! 📈
-
-#DataSphere #LinkedInAutomation #AI`,
-          hashtags: '#DataSphere #LinkedInAutomation #AI',
-          format: 'text',
-          angle: 'authenticity',
-          targetAudience: profile.targetAudience,
-          qualityScore: 8.5,
-          optimalTime: '09:00',
-          engagementEst: '150-300 likes',
-        }),
+        body: JSON.stringify({ count: 1 }),
       })
       const data = await res.json()
       if (!data.success) throw new Error(data.error)
-      setGeneratedPost(data.data.content)
-      toast.success('Post généré avec succès !')
+      setGeneratedPost(data.data[0].content)
+      toast.success('Post généré par IA avec succès !')
     } catch (err: any) {
       toast.error(err.message)
     } finally {

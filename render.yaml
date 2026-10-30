@@ -1,6 +1,6 @@
 # DataSphere - Configuration Render
 # https://render.com/docs/blueprint-spec
-# Déploiement: docker + PostgreSQL + persistent disk pour uploads
+# Déploiement: docker + PostgreSQL + Stripe + LinkedIn OAuth
 
 services:
   - type: web
@@ -22,23 +22,32 @@ services:
           name: datasphere-db
           property: connectionString
       - key: DATASPHERE_AUTH_SECRET
-        generateValue: true  # Render génère un secret aléatoire
-      - key: DEMO_MODE
-        value: 'true'  # passer à 'false' une fois OAuth LinkedIn branché
+        generateValue: true
+      - key: NEXT_PUBLIC_APP_URL
+        fromService:
+          type: web
+          name: datasphere
+          property: hosturl
+      # LinkedIn OAuth - à définir dans le dashboard Render
       - key: LINKEDIN_CLIENT_ID
         sync: false
       - key: LINKEDIN_CLIENT_SECRET
         sync: false
       - key: LINKEDIN_REDIRECT_URI
+        sync: false  # ex: https://datasphere.onrender.com/api/linkedin/callback
+      # Stripe - à définir dans le dashboard Render
+      - key: STRIPE_SECRET_KEY
         sync: false
-    disk:
-      name: datasphere-uploads
-      mountPath: /app/data
-      sizeGB: 1
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_PRO_MONTHLY
+        sync: false
+      - key: STRIPE_PRICE_BUSINESS_MONTHLY
+        sync: false
 
 # Base de données PostgreSQL managée par Render
 databases:
   - name: datasphere-db
     plan: free  # 1GB, 90 jours gratuits - suffisant pour démarrer
     region: frankfurt
-    ipAllowList: []  # accessible seulement par les services Render
+    ipAllowList: []

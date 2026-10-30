@@ -8,7 +8,8 @@ export async function GET() {
     status: 'ok',
     timestamp: new Date().toISOString(),
     env: process.env.NODE_ENV,
-    demo: process.env.DEMO_MODE === 'true',
+    linkedinConfigured: !!(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET),
+    stripeConfigured: !!process.env.STRIPE_SECRET_KEY,
   }
 
   // Vérifier la connexion DB

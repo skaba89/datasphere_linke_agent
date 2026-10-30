@@ -1,11 +1,20 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUserId } from '@/lib/auth'
+import { checkPlanLimit } from '@/lib/plans'
 
 // ============================================================
 // POST /api/linkedin/publish
-// Publie (ou planifie) un post sur LinkedIn via l'API v2.
-// Body: { proposalId: string } ou { content: string, accountId: string }
+// Publie un post sur LinkedIn via l'API v2 (UGC Posts).
+//
+// Body: { proposalId?: string } OU { content?: string, accountId?: string }
+//
+// Étapes :
+//   1. Vérifier l'auth + le plan (limite postsPerDay)
+//   2. Récupérer la proposal (si proposalId fourni)
+//   3. Récupérer un compte LinkedIn actif + token non expiré
+//   4. Appeler LinkedIn API v2 /ugcPosts
+//   5. Mettre à jour la proposal (status=published, linkedinPostId)
 // ============================================================
 export async function POST(request: Request) {
   try {
@@ -14,6 +23,20 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, error: 'Non authentifié' },
         { status: 401 }
+      )
+    }
+
+    // Vérifier la limite postsPerDay
+    const limitCheck = await checkPlanLimit(userId, 'postsPerDay')
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Limite de votre plan atteinte (${limitCheck.limit} posts/jour). Passez à l'offre supérieure.`,
+          upgrade: true,
+          remaining: limitCheck.remaining,
+        },
+        { status: 402 }
       )
     }
 
@@ -44,6 +67,13 @@ export async function POST(request: Request) {
       )
     }
 
+    if (text.length > 3000) {
+      return NextResponse.json(
+        { success: false, error: 'Contenu trop long (3000 caractères max sur LinkedIn)' },
+        { status: 400 }
+      )
+    }
+
     // 2. Récupérer un compte LinkedIn actif
     let account: any = null
     if (accountId) {
@@ -61,7 +91,8 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Aucun compte LinkedIn actif. Connectez un compte d\'abord.',
+          error: 'Aucun compte LinkedIn actif. Connectez votre compte LinkedIn d\'abord.',
+          code: 'NO_LINKEDIN_ACCOUNT',
         },
         { status: 400 }
       )
@@ -74,12 +105,16 @@ export async function POST(request: Request) {
         data: { status: 'expired' },
       })
       return NextResponse.json(
-        { success: false, error: 'Token LinkedIn expiré. Reconnectez votre compte.' },
+        {
+          success: false,
+          error: 'Token LinkedIn expiré. Reconnectez votre compte.',
+          code: 'TOKEN_EXPIRED',
+        },
         { status: 401 }
       )
     }
 
-    // 4. Appeler l'API LinkedIn v2 - UGC Posts
+    // 4. ✅ VRAI appel à l'API LinkedIn v2 - UGC Posts
     const linkedinRes = await fetch('https://api.linkedin.com/v2/ugcPosts', {
       method: 'POST',
       headers: {
@@ -88,13 +123,11 @@ export async function POST(request: Request) {
         'X-Restli-Protocol-Version': '2.0.0',
       },
       body: JSON.stringify({
-        author: account.organizationId, // urn:li:person:... ou urn:li:organization:...
+        author: account.organizationId,
         lifecycleState: 'PUBLISHED',
         specificContent: {
           'com.linkedin.ugc.ShareContent': {
-            shareCommentary: {
-              text,
-            },
+            shareCommentary: { text },
             shareMediaCategory: 'NONE',
           },
         },
@@ -108,37 +141,39 @@ export async function POST(request: Request) {
       const errText = await linkedinRes.text()
       console.error('[LinkedIn API error]', linkedinRes.status, errText)
 
+      // Token invalide ou révoqué
       if (linkedinRes.status === 401 || linkedinRes.status === 403) {
         await db.linkedInAccount.update({
           where: { id: account.id },
-          data: { status: 'revoked' },
+          data: { status: linkedinRes.status === 401 ? 'expired' : 'revoked' },
         })
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Token LinkedIn invalide ou révoqué. Reconnectez votre compte.',
+            code: 'TOKEN_INVALID',
+          },
+          { status: 401 }
+        )
       }
 
-      // En mode démo (pas de vrai token LinkedIn), on simule une publication
-      // réussie pour ne pas bloquer le test E2E en production sans credentials.
-      if (process.env.NODE_ENV === 'production' && process.env.DEMO_MODE === 'true') {
-        const fakeId = `urn:li:share:demo-${Date.now()}`
-        if (proposal) {
-          await db.postProposal.update({
-            where: { id: proposal.id },
-            data: {
-              status: 'published',
-              linkedinPostId: fakeId,
-              publishedAt: new Date(),
-            },
-          })
-        }
-        return NextResponse.json({
-          success: true,
-          data: { linkedinPostId: fakeId, demo: true },
-        })
+      // Rate limit LinkedIn
+      if (linkedinRes.status === 429) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Trop de publications. LinkedIn limite le débit. Réessayez dans 1h.',
+            code: 'RATE_LIMITED',
+          },
+          { status: 429 }
+        )
       }
 
       return NextResponse.json(
         {
           success: false,
           error: `Erreur LinkedIn API (${linkedinRes.status}): ${errText}`,
+          code: 'LINKEDIN_API_ERROR',
         },
         { status: 502 }
       )
@@ -161,7 +196,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      data: { linkedinPostId },
+      data: { linkedinPostId, publishedAt: new Date().toISOString() },
     })
   } catch (error: any) {
     console.error('[POST /api/linkedin/publish]', error)

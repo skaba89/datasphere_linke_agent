@@ -157,9 +157,28 @@ export default function Home() {
   // ============================================================
   const handleGenerateProposals = async () => {
     setGenerating(true)
-    await fetch('/api/proposals/seed', { method: 'POST' })
-    await refetchProposals()
-    setGenerating(false)
+    try {
+      // ✅ Vraie génération IA via /api/proposals/generate
+      const res = await fetch('/api/proposals/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ count: 3 }),
+      })
+      const data = await res.json()
+      if (!data.success) {
+        if (res.status === 402) {
+          alert(data.error) // Limite plan atteinte
+        } else {
+          throw new Error(data.error)
+        }
+      } else {
+        await refetchProposals()
+      }
+    } catch (err: any) {
+      console.error('Génération IA échouée:', err.message)
+    } finally {
+      setGenerating(false)
+    }
   }
 
   const handleUpdateProposal = async (id: string, status: string) => {

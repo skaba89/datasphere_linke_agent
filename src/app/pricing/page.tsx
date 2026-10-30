@@ -1,68 +1,121 @@
+'use client'
+
+import { useState } from 'react'
 import { Check } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-
-export const metadata = {
-  title: 'Tarifs — DataSphere',
-  description: 'Des prix simples et transparents pour automatiser votre LinkedIn avec l\'IA.',
-}
-
-const PLANS = [
-  {
-    name: 'Free',
-    price: 0,
-    period: '/mois',
-    description: 'Pour découvrir DataSphere',
-    features: [
-      '1 compte LinkedIn',
-      '3 propositions de posts / jour',
-      'Analytics basiques (14 jours)',
-      'Templates de contenu',
-      'Support email',
-    ],
-    cta: 'Commencer gratuitement',
-    highlight: false,
-  },
-  {
-    name: 'Pro',
-    price: 29,
-    period: '/mois',
-    description: 'Pour les créateurs sérieux',
-    features: [
-      '3 comptes LinkedIn',
-      '20 propositions de posts / jour',
-      'Smart Poster IA (génération auto)',
-      'Analytics avancées (90 jours)',
-      'Planification intelligente',
-      'Export CSV / API',
-      'Support prioritaire 24h',
-    ],
-    cta: 'Démarrer l\'essai 14 jours',
-    highlight: true,
-  },
-  {
-    name: 'Business',
-    price: 79,
-    period: '/mois',
-    description: 'Pour les équipes & agences',
-    features: [
-      'Comptes LinkedIn illimités',
-      'Propositions illimitées',
-      'Multi-utilisateurs (5 sièges)',
-      'Analytics avancées + benchmark',
-      'Branding personnalisé',
-      'White-label',
-      'Support dédié + onboarding',
-      'SLA 99.9%',
-    ],
-    cta: 'Contacter les ventes',
-    highlight: false,
-  },
-]
+import { toast } from 'sonner'
 
 export default function PricingPage() {
+  const router = useRouter()
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
+
+  const plans = [
+    {
+      name: 'Free',
+      price: 0,
+      period: '/mois',
+      description: 'Pour découvrir DataSphere',
+      features: [
+        '1 compte LinkedIn',
+        '3 propositions de posts / jour',
+        'Analytics basiques (14 jours)',
+        'Templates de contenu',
+        'Support email',
+      ],
+      cta: 'Commencer gratuitement',
+      highlight: false,
+      planKey: 'free',
+    },
+    {
+      name: 'Pro',
+      price: 29,
+      period: '/mois',
+      description: 'Pour les créateurs sérieux',
+      features: [
+        '3 comptes LinkedIn',
+        '20 propositions de posts / jour',
+        'Smart Poster IA (génération auto)',
+        'Analytics avancées (90 jours)',
+        'Planification intelligente',
+        'Export CSV / API',
+        'Support prioritaire 24h',
+      ],
+      cta: 'Démarrer l\'essai 14 jours',
+      highlight: true,
+      planKey: 'pro',
+    },
+    {
+      name: 'Business',
+      price: 79,
+      period: '/mois',
+      description: 'Pour les équipes & agences',
+      features: [
+        'Comptes LinkedIn illimités',
+        'Propositions illimitées',
+        'Multi-utilisateurs (5 sièges)',
+        'Analytics avancées + benchmark',
+        'Branding personnalisé',
+        'White-label',
+        'Support dédié + onboarding',
+        'SLA 99.9%',
+      ],
+      cta: 'Contacter les ventes',
+      highlight: false,
+      planKey: 'business',
+    },
+  ]
+
+  const handleSubscribe = async (planKey: string) => {
+    if (planKey === 'free') {
+      router.push('/register')
+      return
+    }
+
+    setLoadingPlan(planKey)
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: planKey }),
+      })
+      const data = await res.json()
+
+      if (!data.success) {
+        // Si non authentifié, rediriger vers register
+        if (res.status === 401) {
+          router.push(`/register?redirect=pricing&plan=${planKey}`)
+          return
+        }
+        throw new Error(data.error || 'Erreur')
+      }
+
+      // Rediriger vers Stripe Checkout
+      window.location.href = data.data.url
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setLoadingPlan(null)
+    }
+  }
+
+  const openPortal = async () => {
+    setLoadingPlan('portal')
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error)
+      window.location.href = data.data.url
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setLoadingPlan(null)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-slate-50">
       <header className="border-b bg-white/80 backdrop-blur sticky top-0 z-10">
@@ -93,7 +146,7 @@ export default function PricingPage() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-8">
-          {PLANS.map((plan) => (
+          {plans.map((plan) => (
             <Card
               key={plan.name}
               className={plan.highlight ? 'border-blue-600 shadow-xl scale-105 relative' : 'relative'}
@@ -121,15 +174,25 @@ export default function PricingPage() {
                   ))}
                 </ul>
               </CardContent>
-              <CardFooter>
-                <Link href={plan.name === 'Business' ? '/register?plan=business' : '/register'} className="w-full">
-                  <Button className="w-full" variant={plan.highlight ? 'default' : 'outline'}>
-                    {plan.cta}
-                  </Button>
-                </Link>
+              <CardFooter className="flex flex-col gap-2">
+                <Button
+                  className="w-full"
+                  variant={plan.highlight ? 'default' : 'outline'}
+                  onClick={() => handleSubscribe(plan.planKey)}
+                  disabled={loadingPlan === plan.planKey}
+                >
+                  {loadingPlan === plan.planKey ? 'Redirection...' : plan.cta}
+                </Button>
               </CardFooter>
             </Card>
           ))}
+        </div>
+
+        <div className="mt-12 text-center">
+          <p className="text-sm text-slate-500 mb-3">Vous avez déjà un abonnement ?</p>
+          <Button variant="ghost" onClick={openPortal} disabled={loadingPlan === 'portal'}>
+            {loadingPlan === 'portal' ? 'Chargement...' : 'Gérer mon abonnement'}
+          </Button>
         </div>
 
         <div className="mt-20 text-center">
