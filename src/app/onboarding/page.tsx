@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -14,7 +14,16 @@ import { Check, Linkedin, Rocket, User, ArrowRight } from 'lucide-react'
 const STEPS = ['Profil', 'LinkedIn', 'Premier post'] as const
 
 export default function OnboardingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Chargement...</div>}>
+      <OnboardingContent />
+    </Suspense>
+  )
+}
+
+function OnboardingContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [step, setStep] = useState(0)
   const [profile, setProfile] = useState({
     topics: 'IA, tech, marketing digital',
@@ -28,6 +37,49 @@ export default function OnboardingPage() {
   const [generatedPost, setGeneratedPost] = useState<string>('')
 
   const progress = ((step + 1) / STEPS.length) * 100
+
+  // ⭐ Gestion du retour OAuth LinkedIn (?linkedin=connected ou ?error=XXX)
+  useEffect(() => {
+    const linkedin = searchParams.get('linkedin')
+    const error = searchParams.get('error')
+
+    if (linkedin === 'connected') {
+      setLinkedinConnected(true)
+      setStep(2) // avancer à l'étape "Premier post"
+      toast.success('Compte LinkedIn connecté avec succès !')
+      // nettoyer l'URL
+      router.replace('/onboarding')
+    } else if (error) {
+      const errorMessages: Record<string, string> = {
+        missing_params: 'Paramètres manquants lors du callback LinkedIn.',
+        invalid_state: 'État OAuth invalide. Réessayez.',
+        expired_state: 'Session expirée. Réessayez.',
+        config_missing: 'Configuration LinkedIn manquante côté serveur.',
+        token_exchange_failed: 'Échange du code LinkedIn échoué. Vérifiez vos credentials.',
+        profile_fetch_failed: 'Impossible de récupérer votre profil LinkedIn.',
+        server_error: 'Erreur serveur. Réessayez plus tard.',
+        user_cancelled: 'Vous avez annulé la connexion LinkedIn.',
+        unauthorized: 'Vous devez autoriser l\'app LinkedIn.',
+      }
+      toast.error(errorMessages[error] || `Erreur LinkedIn: ${error}`)
+      router.replace('/onboarding')
+    }
+  }, [searchParams, router])
+
+  // Vérifier si un compte LinkedIn est déjà connecté (au mount)
+  useEffect(() => {
+    fetch('/api/linkedin')
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.data && d.data.length > 0) {
+          const activeAccount = d.data.find((a: any) => a.status === 'active')
+          if (activeAccount) {
+            setLinkedinConnected(true)
+          }
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const saveProfile = async () => {
     try {

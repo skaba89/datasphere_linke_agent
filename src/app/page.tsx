@@ -186,6 +186,42 @@ export default function Home() {
     await refetchProposals()
   }
 
+  const handlePublishProposal = async (id: string) => {
+    try {
+      const res = await fetch('/api/linkedin/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proposalId: id }),
+      })
+      const data = await res.json()
+      if (!data.success) {
+        if (res.status === 401) {
+          alert('Session expirée. Reconnectez-vous.')
+          window.location.href = '/login'
+          return
+        }
+        if (res.status === 402) {
+          alert(data.error + (data.upgrade ? '\n\nPassez à l\'offre supérieure sur /pricing' : ''))
+          return
+        }
+        if (data.code === 'NO_LINKEDIN_ACCOUNT') {
+          alert('Aucun compte LinkedIn connecté. Allez dans l\'onboarding pour le connecter.')
+          return
+        }
+        if (data.code === 'TOKEN_EXPIRED' || data.code === 'TOKEN_INVALID') {
+          alert('Token LinkedIn expiré. Reconnectez votre compte LinkedIn.')
+          window.location.href = '/onboarding'
+          return
+        }
+        throw new Error(data.error)
+      }
+      alert('✅ Post publié sur LinkedIn avec succès !')
+      await refetchProposals()
+    } catch (err: any) {
+      alert('Erreur de publication: ' + err.message)
+    }
+  }
+
   const handleSaveSettings = async () => {
     if (!settings) return
     setSaving(true)
@@ -271,6 +307,7 @@ export default function Home() {
                   onGenerate={handleGenerateProposals}
                   generating={generating}
                   onUpdate={handleUpdateProposal}
+                  onPublish={handlePublishProposal}
                 />
               </motion.div>
             )}
@@ -725,14 +762,26 @@ function SmartPosterTab({ settings, setSettings, saving, onSave }: {
 // ============================================================
 // PROPOSALS TAB
 // ============================================================
-function ProposalsTab({ proposals, filter, onFilterChange, onGenerate, generating, onUpdate }: {
+function ProposalsTab({ proposals, filter, onFilterChange, onGenerate, generating, onUpdate, onPublish }: {
   proposals: Proposal[]
   filter: string
   onFilterChange: (f: string) => void
   onGenerate: () => void
   generating: boolean
   onUpdate: (id: string, status: string) => void
+  onPublish: (id: string) => Promise<void>
 }) {
+  const [publishingId, setPublishingId] = useState<string | null>(null)
+
+  const handlePublish = async (id: string) => {
+    if (!confirm('Publier ce post sur LinkedIn maintenant ?')) return
+    setPublishingId(id)
+    try {
+      await onPublish(id)
+    } finally {
+      setPublishingId(null)
+    }
+  }
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -842,6 +891,31 @@ function ProposalsTab({ proposals, filter, onFilterChange, onGenerate, generatin
                           <X className="h-4 w-4 mr-1" />
                           Rejeter
                         </Button>
+                      </div>
+                    )}
+                    {p.status === 'approved' && (
+                      <div className="flex md:flex-col gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          className="bg-[#0A66C2] hover:bg-[#0A66C2]/90 text-white"
+                          onClick={() => handlePublish(p.id)}
+                          disabled={publishingId === p.id}
+                        >
+                          {publishingId === p.id ? (
+                            <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}>
+                              <RefreshCw className="h-4 w-4 mr-1" />
+                            </motion.div>
+                          ) : (
+                            <Send className="h-4 w-4 mr-1" />
+                          )}
+                          {publishingId === p.id ? 'Publication...' : 'Publier'}
+                        </Button>
+                      </div>
+                    )}
+                    {p.status === 'published' && (
+                      <div className="flex items-center gap-1 shrink-0 text-emerald-600 text-sm font-medium">
+                        <Check className="h-4 w-4" />
+                        Publié
                       </div>
                     )}
                   </div>

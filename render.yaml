@@ -44,6 +44,9 @@ services:
         sync: false
       - key: STRIPE_PRICE_BUSINESS_MONTHLY
         sync: false
+      # Cron secret (pour protéger /api/cron/* endpoints)
+      - key: CRON_SECRET
+        generateValue: true
 
 # Base de données PostgreSQL managée par Render
 databases:
@@ -51,3 +54,10 @@ databases:
     plan: free  # 1GB, 90 jours gratuits - suffisant pour démarrer
     region: frankfurt
     ipAllowList: []
+
+# Cron job : sync analytics LinkedIn toutes les heures
+# (récupère les likes/comments/shares réels des posts publiés)
+crons:
+  - name: sync-linkedin-analytics
+    schedule: "0 * * * *"  # toutes les heures
+    command: "curl -fsSL -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:10000/api/cron/sync-analytics || true"
