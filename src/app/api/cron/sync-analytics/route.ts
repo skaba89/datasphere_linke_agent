@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { syncEngagementMetrics } from '@/lib/linkedin'
+import { logger } from '@/lib/logger'
 
 // ============================================================
 // GET /api/cron/sync-analytics
@@ -17,7 +18,7 @@ import { syncEngagementMetrics } from '@/lib/linkedin'
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET
   if (!cronSecret) {
-    console.error('[CRON] CRON_SECRET not configured')
+    logger.error({ route: 'cron/sync-analytics' }, 'CRON_SECRET not configured')
     return NextResponse.json(
       { error: 'CRON_SECRET not configured' },
       { status: 500 }
@@ -26,13 +27,15 @@ export async function GET(request: Request) {
 
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${cronSecret}`) {
+    logger.warn({ route: 'cron/sync-analytics', authHeader: authHeader?.substring(0, 20) }, 'Unauthorized cron access')
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }
     )
   }
 
-  console.log('[CRON] sync-analytics started at', new Date().toISOString())
+  const startTime = Date.now()
+  logger.info({ route: 'cron/sync-analytics' }, 'Cron sync-analytics started')
 
   // Récupérer tous les users avec un compte LinkedIn actif
   const usersWithLinkedIn = await db.user.findMany({
@@ -53,14 +56,19 @@ export async function GET(request: Request) {
       totalErrors += result.errors
       usersProcessed++
     } catch (err: any) {
-      console.error(`[CRON] Error syncing user ${user.id}:`, err.message)
+      logger.error({ err: err.message, userId: user.id }, 'Error syncing user analytics')
       totalErrors++
     }
   }
 
-  console.log(
-    `[CRON] sync-analytics done: ${usersProcessed} users, ${totalSynced} posts synced, ${totalErrors} errors`
-  )
+  const durationMs = Date.now() - startTime
+  logger.info({
+    route: 'cron/sync-analytics',
+    usersProcessed,
+    postsSynced: totalSynced,
+    errors: totalErrors,
+    durationMs,
+  }, 'Cron sync-analytics done')
 
   return NextResponse.json({
     success: true,
@@ -68,6 +76,7 @@ export async function GET(request: Request) {
       usersProcessed,
       postsSynced: totalSynced,
       errors: totalErrors,
+      durationMs,
       timestamp: new Date().toISOString(),
     },
   })

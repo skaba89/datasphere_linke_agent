@@ -48,3 +48,12 @@ logs/
 
 # Render / production
 /render.yaml.local
+
+# Playwright
+/test-results/
+/playwright-report/
+/tests/report/
+/playwright/.cache/
+
+# Sentry
+.sentryclirc

@@ -52,6 +52,14 @@ services:
         sync: false
       - key: FROM_EMAIL
         value: "DataSphere <noreply@datasphere.app>"
+      # Sentry (monitoring) - optionnel
+      - key: SENTRY_DSN
+        sync: false
+      - key: NEXT_PUBLIC_SENTRY_DSN
+        sync: false
+      # Logs
+      - key: LOG_LEVEL
+        value: info
 
 # Base de données PostgreSQL managée par Render
 databases:
@@ -60,9 +68,13 @@ databases:
     region: frankfurt
     ipAllowList: []
 
-# Cron job : sync analytics LinkedIn toutes les heures
-# (récupère les likes/comments/shares réels des posts publiés)
+# Cron jobs Render
 crons:
+  # Sync analytics LinkedIn toutes les heures
   - name: sync-linkedin-analytics
-    schedule: "0 * * * *"  # toutes les heures
+    schedule: "0 * * * *"
     command: "curl -fsSL -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:10000/api/cron/sync-analytics || true"
+  # Publication automatique des posts approuvés (toutes les 30 min)
+  - name: scheduled-publish
+    schedule: "0,30 * * * *"
+    command: "curl -fsSL -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:10000/api/cron/scheduled-publish || true"

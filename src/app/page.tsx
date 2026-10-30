@@ -26,6 +26,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { LinkedInAccountSwitcher } from '@/components/linkedin-account-switcher'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, LineChart, Line, BarChart, Bar, Legend
@@ -377,6 +378,12 @@ function DashboardSidebar({ items, activeTab, onNav, onBack, user, onLogout }: {
           )
         })}
       </nav>
+
+      {/* LinkedIn Account Switcher */}
+      <div className="px-3 pb-3 border-t border-slate-100 pt-3">
+        <p className="text-xs font-medium text-slate-400 uppercase mb-2 px-1">Compte LinkedIn</p>
+        <LinkedInAccountSwitcher />
+      </div>
 
       <div className="p-3 border-t border-slate-100 space-y-2">
         <a

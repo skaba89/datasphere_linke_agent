@@ -3,19 +3,13 @@ import { db } from '@/lib/db'
 import { getCurrentUserId } from '@/lib/auth'
 import { checkPlanLimit } from '@/lib/plans'
 import { applyRateLimit, RATE_LIMITS, rateLimitHeaders } from '@/lib/rate-limit'
+import { publishPostToLinkedIn } from '@/lib/linkedin-publisher'
 
 // ============================================================
 // POST /api/linkedin/publish
 // Publie un post sur LinkedIn via l'API v2 (UGC Posts).
 //
 // Body: { proposalId?: string } OU { content?: string, accountId?: string }
-//
-// Étapes :
-//   1. Vérifier l'auth + le plan (limite postsPerDay)
-//   2. Récupérer la proposal (si proposalId fourni)
-//   3. Récupérer un compte LinkedIn actif + token non expiré
-//   4. Appeler LinkedIn API v2 /ugcPosts
-//   5. Mettre à jour la proposal (status=published, linkedinPostId)
 // ============================================================
 export async function POST(request: Request) {
   try {
@@ -83,13 +77,6 @@ export async function POST(request: Request) {
       )
     }
 
-    if (text.length > 3000) {
-      return NextResponse.json(
-        { success: false, error: 'Contenu trop long (3000 caractères max sur LinkedIn)' },
-        { status: 400 }
-      )
-    }
-
     // 2. Récupérer un compte LinkedIn actif
     let account: any = null
     if (accountId) {
@@ -130,89 +117,41 @@ export async function POST(request: Request) {
       )
     }
 
-    // 4. ✅ VRAI appel à l'API LinkedIn v2 - UGC Posts
-    const linkedinRes = await fetch('https://api.linkedin.com/v2/ugcPosts', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${account.accessToken}`,
-        'Content-Type': 'application/json',
-        'X-Restli-Protocol-Version': '2.0.0',
-      },
-      body: JSON.stringify({
-        author: account.organizationId,
-        lifecycleState: 'PUBLISHED',
-        specificContent: {
-          'com.linkedin.ugc.ShareContent': {
-            shareCommentary: { text },
-            shareMediaCategory: 'NONE',
-          },
-        },
-        visibility: {
-          'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC',
-        },
-      }),
+    // 4. ✅ Publication via shared module
+    const result = await publishPostToLinkedIn({
+      accessToken: account.accessToken,
+      organizationId: account.organizationId,
+      proposalId: proposal?.id,
+      content: text,
+      userId,
     })
 
-    if (!linkedinRes.ok) {
-      const errText = await linkedinRes.text()
-      console.error('[LinkedIn API error]', linkedinRes.status, errText)
-
-      // Token invalide ou révoqué
-      if (linkedinRes.status === 401 || linkedinRes.status === 403) {
+    if (!result.success) {
+      // Si token invalide, marquer le compte
+      if (result.code === 'TOKEN_INVALID') {
         await db.linkedInAccount.update({
           where: { id: account.id },
-          data: { status: linkedinRes.status === 401 ? 'expired' : 'revoked' },
+          data: { status: 'revoked' },
         })
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Token LinkedIn invalide ou révoqué. Reconnectez votre compte.',
-            code: 'TOKEN_INVALID',
-          },
-          { status: 401 }
-        )
       }
 
-      // Rate limit LinkedIn
-      if (linkedinRes.status === 429) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Trop de publications. LinkedIn limite le débit. Réessayez dans 1h.',
-            code: 'RATE_LIMITED',
-          },
-          { status: 429 }
-        )
-      }
+      const status = result.code === 'TOKEN_INVALID' ? 401
+        : result.code === 'RATE_LIMITED' ? 429
+        : result.code === 'LINKEDIN_API_ERROR' ? 502
+        : 500
 
       return NextResponse.json(
-        {
-          success: false,
-          error: `Erreur LinkedIn API (${linkedinRes.status}): ${errText}`,
-          code: 'LINKEDIN_API_ERROR',
-        },
-        { status: 502 }
+        { success: false, error: result.error, code: result.code },
+        { status }
       )
-    }
-
-    const linkedinData = await linkedinRes.json()
-    const linkedinPostId = linkedinData.id || null
-
-    // 5. Mettre à jour la proposal
-    if (proposal) {
-      await db.postProposal.update({
-        where: { id: proposal.id },
-        data: {
-          status: 'published',
-          linkedinPostId,
-          publishedAt: new Date(),
-        },
-      })
     }
 
     return NextResponse.json({
       success: true,
-      data: { linkedinPostId, publishedAt: new Date().toISOString() },
+      data: {
+        linkedinPostId: result.linkedinPostId,
+        publishedAt: new Date().toISOString(),
+      },
     })
   } catch (error: any) {
     console.error('[POST /api/linkedin/publish]', error)
