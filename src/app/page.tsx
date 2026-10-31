@@ -35,6 +35,7 @@ import { AgencyDashboard } from '@/components/agency-dashboard'
 import { CalendarTab, TemplatesTab, LogsTab, ReportsTab, AgentIATab, ProfileTab, ComingSoonTab, ProspectingTab, PipelineTab, CrmTab, NetworkingTab, MessagesTab } from '@/components/dashboard-tabs'
 import { CommentsTab } from '@/components/comments-tab'
 import { ScoutTab } from '@/components/scout-tab'
+import { toast } from 'sonner'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, LineChart, Line, BarChart, Bar, Legend
@@ -351,7 +352,7 @@ export default function Home() {
           <AnimatePresence mode="wait">
             {activeTab === 'overview' && (
               <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-                <AgencyDashboard user={user} />
+                <AgencyDashboard user={user} onNav={handleNavClick} />
               </motion.div>
             )}
             {activeTab === 'smart-poster' && (
@@ -379,7 +380,7 @@ export default function Home() {
             )}
             {activeTab === 'settings' && (
               <motion.div key="settings" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-                <SettingsTab user={user} />
+                <SettingsTab user={user} onUpdateUser={(u) => setUser(u)} />
               </motion.div>
             )}
             {/* Real functional tabs */}
@@ -1286,12 +1287,32 @@ function PlaceholderTab({ tabId }: { tabId: string }) {
 // ============================================================
 // SETTINGS TAB
 // ============================================================
-function SettingsTab({ user }: { user: CurrentUser | null }) {
-  const displayName = user?.name || ''
+function SettingsTab({ user, onUpdateUser }: { user: CurrentUser | null; onUpdateUser?: (u: CurrentUser) => void }) {
+  const [name, setName] = useState(user?.name || '')
+  const [saving, setSaving] = useState(false)
   const email = user?.email || ''
   const plan = user?.plan || 'free'
   const trialActive = user?.trialActive
   const trialEndsAt = user?.trialEndsAt ? new Date(user.trialEndsAt).toLocaleDateString('fr-FR') : null
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/auth/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      })
+      const d = await res.json()
+      if (!d.success) throw new Error(d.error)
+      if (onUpdateUser) onUpdateUser(d.data)
+      toast.success('Profil mis à jour !')
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -1313,14 +1334,16 @@ function SettingsTab({ user }: { user: CurrentUser | null }) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-sm font-medium text-slate-700">Nom complet</Label>
-              <Input defaultValue={displayName} placeholder="Votre nom" />
+              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Votre nom" />
             </div>
             <div className="space-y-2">
               <Label className="text-sm font-medium text-slate-700">Email</Label>
               <Input defaultValue={email} type="email" disabled />
             </div>
           </div>
-          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white mt-2">Mettre à jour</Button>
+          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white mt-2" onClick={handleSave} disabled={saving}>
+            {saving ? 'Sauvegarde...' : 'Mettre à jour'}
+          </Button>
         </CardContent>
       </Card>
 
@@ -1373,7 +1396,7 @@ function SettingsTab({ user }: { user: CurrentUser | null }) {
                 )}
               </div>
             </div>
-            <Button variant="outline">Changer de plan</Button>
+            <a href="/pricing"><Button variant="outline">Changer de plan</Button></a>
           </div>
         </CardContent>
       </Card>
@@ -2003,9 +2026,10 @@ function LandingPage({ onLogin, onCTA }: { onLogin: () => void; onCTA: () => voi
             <div>
               <h4 className="font-semibold text-white text-sm mb-4">Entreprise</h4>
               <ul className="space-y-2.5">
-                {['À propos', 'Blog', 'Carrières', 'Contact'].map((l) => (
-                  <li key={l}><a href="#" className="text-sm text-slate-400 hover:text-white transition-colors">{l}</a></li>
-                ))}
+                <li><a href="/blog" className="text-sm text-slate-400 hover:text-white transition-colors">Blog</a></li>
+                <li><a href="/affiliate" className="text-sm text-slate-400 hover:text-white transition-colors">Affiliation</a></li>
+                <li><a href="/legal/notice" className="text-sm text-slate-400 hover:text-white transition-colors">Contact</a></li>
+                <li><a href="/setup" className="text-sm text-slate-400 hover:text-white transition-colors">Aide</a></li>
               </ul>
             </div>
 
@@ -2026,9 +2050,9 @@ function LandingPage({ onLogin, onCTA }: { onLogin: () => void; onCTA: () => voi
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-sm text-slate-500">© 2025 LinkedInPost. Tous droits réservés.</p>
             <div className="flex items-center gap-4">
-              <a href="#" className="text-slate-500 hover:text-white transition-colors"><Globe className="h-5 w-5" /></a>
-              <a href="#" className="text-slate-500 hover:text-white transition-colors"><MessageCircle className="h-5 w-5" /></a>
-              <a href="#" className="text-slate-500 hover:text-white transition-colors"><Share2 className="h-5 w-5" /></a>
+              <a href="/blog" className="text-slate-500 hover:text-white transition-colors"><Globe className="h-5 w-5" /></a>
+              <a href="/affiliate" className="text-slate-500 hover:text-white transition-colors"><MessageCircle className="h-5 w-5" /></a>
+              <a href="/setup" className="text-slate-500 hover:text-white transition-colors"><Share2 className="h-5 w-5" /></a>
             </div>
           </div>
         </div>

@@ -46,7 +46,7 @@ interface DashboardData {
   }>
 }
 
-export function AgencyDashboard({ user }: { user: any }) {
+export function AgencyDashboard({ user, onNav }: { user: any; onNav?: (tab: string) => void }) {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [showAddClient, setShowAddClient] = useState(false)
@@ -307,8 +307,8 @@ export function AgencyDashboard({ user }: { user: any }) {
                   </div>
 
                   <div className="flex gap-2 mt-3">
-                    <Button size="sm" variant="outline" className="text-xs h-7">Voir posts</Button>
-                    <Button size="sm" variant="outline" className="text-xs h-7">Voir rapport</Button>
+                    <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => onNav?.('proposals')}>Voir posts</Button>
+                    <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => onNav?.('reports')}>Voir rapport</Button>
                   </div>
                 </div>
               ))}
