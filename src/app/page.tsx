@@ -117,21 +117,35 @@ export default function Home() {
   // Au mount : vérifier si l'utilisateur est connecté
   // Si non connecté → redirect vers /login (pas de landing page)
   useEffect(() => {
+    let cancelled = false
     fetch('/api/auth/me')
       .then(r => r.json())
       .then(d => {
+        if (cancelled) return
         if (d.success && d.data) {
           setUser(d.data)
-          loadDashboardData()
+          // Charger les données du dashboard en parallèle
+          Promise.all([
+            fetch('/api/settings').then(r => r.json()).catch(() => ({ success: false })),
+            fetch('/api/proposals').then(r => r.json()).catch(() => ({ success: false })),
+            fetch('/api/metrics').then(r => r.json()).catch(() => ({ success: false })),
+          ]).then(([s, p, m]) => {
+            if (cancelled) return
+            if (s.success) setSettings(s.data)
+            if (p.success) setProposals(p.data)
+            if (m.success) setMetrics(m.data)
+            setDataLoaded(true)
+          })
         } else {
           // Non authentifié → redirect login
           window.location.href = '/login'
         }
       })
       .catch(() => {
-        window.location.href = '/login'
+        if (!cancelled) window.location.href = '/login'
       })
-      .finally(() => setAuthChecked(true))
+      .finally(() => { if (!cancelled) setAuthChecked(true) })
+    return () => { cancelled = true }
   }, [])
 
   const loadDashboardData = useCallback(async () => {
@@ -335,17 +349,33 @@ export default function Home() {
             <Menu className="h-5 w-5" />
           </Button>
           <span className="font-bold text-lg text-slate-900">LinkedInPost</span>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <a
+              href="/connect/linkedin"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#0A66C2] text-white text-xs font-medium"
+            >
+              <Globe className="h-3 w-3" />
+              LinkedIn
+            </a>
             <NotificationBell />
           </div>
         </div>
 
         {/* Desktop top bar with notifications */}
-        <div className="hidden lg:flex sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-2 items-center justify-end">
-          <NotificationBell />
-          <a href="/settings" className="ml-2 p-2 rounded-lg hover:bg-slate-100 transition-colors">
-            <Settings className="h-5 w-5 text-slate-600" />
+        <div className="hidden lg:flex sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-2 items-center justify-between">
+          <a
+            href="/connect/linkedin"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0A66C2] text-white text-sm font-medium hover:bg-[#0A66C2]/90 transition-colors"
+          >
+            <Globe className="h-4 w-4" />
+            Connecter LinkedIn
           </a>
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <a href="/settings" className="p-2 rounded-lg hover:bg-slate-100 transition-colors">
+              <Settings className="h-5 w-5 text-slate-600" />
+            </a>
+          </div>
         </div>
 
         <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
