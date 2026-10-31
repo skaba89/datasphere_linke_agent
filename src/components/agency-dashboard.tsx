@@ -6,9 +6,15 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger
+} from '@/components/ui/dialog'
+import { toast } from 'sonner'
 import {
   Users, FileText, Calendar, TrendingUp, Check, X, AlertCircle,
-  Plus, Activity, Target, ChevronRight
+  Plus, Activity, Target, ChevronRight, Sparkles, Loader2
 } from 'lucide-react'
 
 interface DashboardData {
@@ -43,14 +49,59 @@ interface DashboardData {
 export function AgencyDashboard({ user }: { user: any }) {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [showAddClient, setShowAddClient] = useState(false)
+  const [newClientName, setNewClientName] = useState('')
+  const [newClientGoal, setNewClientGoal] = useState('20')
+  const [adding, setAdding] = useState(false)
+  const [seeding, setSeeding] = useState(false)
 
-  useEffect(() => {
+  const loadDashboard = () => {
     fetch('/api/dashboard')
       .then(r => r.json())
       .then(d => { if (d.success) setData(d.data) })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { loadDashboard() }, [])
+
+  const handleAddClient = async () => {
+    if (!newClientName.trim()) { toast.error('Nom requis'); return }
+    setAdding(true)
+    try {
+      const res = await fetch('/api/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newClientName, monthlyGoal: parseInt(newClientGoal) || 20 }),
+      })
+      const d = await res.json()
+      if (!d.success) throw new Error(d.error)
+      toast.success(`Client "${newClientName}" créé !`)
+      setNewClientName('')
+      setShowAddClient(false)
+      loadDashboard()
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  const handleSeedDemo = async () => {
+    if (!confirm('Créer 2 clients de démo + ~32 posts ? Cela peuplera votre dashboard.')) return
+    setSeeding(true)
+    try {
+      const res = await fetch('/api/demo/seed', { method: 'POST' })
+      const d = await res.json()
+      if (!d.success) throw new Error(d.error)
+      toast.success(`${d.data.clientsCreated} clients et ${d.data.postsCreated} posts créés !`)
+      loadDashboard()
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setSeeding(false)
+    }
+  }
 
   const firstName = user?.name?.split(' ')[0] || (user?.email ? user.email.split('@')[0] : '')
 
@@ -112,9 +163,67 @@ export function AgencyDashboard({ user }: { user: any }) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Bonjour {firstName} 👋</h1>
-        <p className="text-slate-500 mt-1">Voici un aperçu de votre activité LinkedIn</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Bonjour {firstName} 👋</h1>
+          <p className="text-slate-500 mt-1">Voici un aperçu de votre activité LinkedIn</p>
+        </div>
+        <div className="flex gap-2">
+          {stats.activeClients === 0 && (
+            <Button
+              onClick={handleSeedDemo}
+              disabled={seeding}
+              variant="outline"
+              className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+            >
+              {seeding ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+              Données de démo
+            </Button>
+          )}
+          <Dialog open={showAddClient} onOpenChange={setShowAddClient}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Ajouter un client
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Nouveau client</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label htmlFor="clientName">Nom du client</Label>
+                  <Input
+                    id="clientName"
+                    value={newClientName}
+                    onChange={(e) => setNewClientName(e.target.value)}
+                    placeholder="ex: Team DataSphere"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddClient()}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="clientGoal">Objectif mensuel (posts/mois)</Label>
+                  <Input
+                    id="clientGoal"
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={newClientGoal}
+                    onChange={(e) => setNewClientGoal(e.target.value)}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowAddClient(false)}>Annuler</Button>
+                <Button onClick={handleAddClient} disabled={adding || !newClientName.trim()}>
+                  {adding ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                  Créer
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Stat Cards */}
