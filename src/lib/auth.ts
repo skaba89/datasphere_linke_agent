@@ -1,54 +1,39 @@
 import { cookies } from 'next/headers'
-import { createHmac } from 'crypto'
+import { createHmac, timingSafeEqual } from 'node:crypto'
 
-// ============================================================
-// Auth helper minimaliste (cookie signé) pour DataSphere
-//
-// Pour la production commerciale complète, brancher next-auth
-// avec un provider Credentials + GitHub/Google. En attendant,
-// ce helper permet de protéger les routes /api/linkedin sans
-// dépendre d'une infrastructure externe.
-//
-// Cookie format: <userId>.<hmac(userId)>
-// ============================================================
-
-const SECRET = process.env.DATASPHERE_AUTH_SECRET || 'dev-insecure-secret-change-me'
-
-function sign(payload: string): string {
-  return createHmac('sha256', SECRET).update(payload).digest('hex')
+const MAX_AGE_SECONDS = 60 * 60 * 24 * 30
+function secret(): string {
+  const value = process.env.DATASPHERE_AUTH_SECRET
+  if (!value || value.length < 32) throw new Error('DATASPHERE_AUTH_SECRET must be at least 32 characters')
+  return value
 }
-
+function sign(payload: string): Buffer {
+  return createHmac('sha256', secret()).update(payload).digest()
+}
+export function verifySession(value: string, now = Date.now()): string | null {
+  const parts = value.split('.')
+  if (parts.length !== 4 || parts[0] !== 'v2') return null
+  const [, userId, expiresText, signature] = parts
+  const expires = Number(expiresText)
+  if (!userId || !/^[a-zA-Z0-9_-]{1,128}$/.test(userId) || !Number.isSafeInteger(expires) || expires <= now) return null
+  const expected = sign(`v2.${userId}.${expiresText}`)
+  let actual: Buffer
+  try { actual = Buffer.from(signature, 'base64url') } catch { return null }
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null
+  return userId
+}
 export async function getCurrentUserId(): Promise<string | null> {
-  try {
-    const store = await cookies()
-    const cookie = store.get('datasphere_session')
-    if (!cookie) return null
-
-    const [userId, sig] = cookie.value.split('.')
-    if (!userId || !sig) return null
-
-    const expected = sign(userId)
-    if (sig !== expected) return null
-
-    return userId
-  } catch {
-    return null
-  }
+  const value = (await cookies()).get('datasphere_session')?.value
+  return value ? verifySession(value) : null
 }
-
 export async function setSessionCookie(userId: string): Promise<void> {
-  const store = await cookies()
-  const sig = sign(userId)
-  store.set('datasphere_session', `${userId}.${sig}`, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30, // 30 jours
+  const expiresAt = Date.now() + MAX_AGE_SECONDS * 1000
+  const payload = `v2.${userId}.${expiresAt}`
+  ;(await cookies()).set('datasphere_session', `${payload}.${sign(payload).toString('base64url')}`, {
+    httpOnly: true, secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax', path: '/', maxAge: MAX_AGE_SECONDS,
   })
 }
-
 export async function clearSessionCookie(): Promise<void> {
-  const store = await cookies()
-  store.delete('datasphere_session')
+  (await cookies()).delete('datasphere_session')
 }
