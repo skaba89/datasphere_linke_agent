@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { encryptLinkedInToken } from '@/lib/linkedin-token-crypto'
 import { db } from '@/lib/db'
 import { getCurrentUserId } from '@/lib/auth'
 
@@ -107,8 +108,8 @@ export async function POST(request: Request) {
         email: email ?? null,
         pictureUrl: pictureUrl ?? null,
         headline: headline ?? null,
-        accessToken,
-        refreshToken: refreshToken ?? null,
+        accessToken: encryptLinkedInToken(accessToken),
+        refreshToken: refreshToken ? encryptLinkedInToken(refreshToken) : null,
         tokenExpiresAt: tokenExpiresAt ? new Date(tokenExpiresAt) : null,
         scopes: scopes ?? null,
         status: 'active', // ✅ Réactive le compte s'il était désactivé
@@ -121,8 +122,8 @@ export async function POST(request: Request) {
         email: email ?? null,
         pictureUrl: pictureUrl ?? null,
         headline: headline ?? null,
-        accessToken,
-        refreshToken: refreshToken ?? null,
+        accessToken: encryptLinkedInToken(accessToken),
+        refreshToken: refreshToken ? encryptLinkedInToken(refreshToken) : null,
         tokenExpiresAt: tokenExpiresAt ? new Date(tokenExpiresAt) : null,
         scopes: scopes ?? null,
         status: 'active',

@@ -52,6 +52,10 @@ services:
       - key: NEXT_PUBLIC_APP_URL
         sync: false
 
+      # AES-256-GCM key (base64 of 32 random bytes; preserve across deploys)
+      - key: LINKEDIN_TOKEN_ENCRYPTION_KEY
+        sync: false
+
       # LinkedIn OAuth (à définir manuellement dans Render dashboard)
       - key: LINKEDIN_CLIENT_ID
         sync: false

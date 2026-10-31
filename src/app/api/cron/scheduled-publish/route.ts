@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { decryptLinkedInToken } from '@/lib/linkedin-token-crypto'
 import { db } from '@/lib/db'
 import { logger } from '@/lib/logger'
 import { publishPostToLinkedIn } from '@/lib/linkedin-publisher'
@@ -152,7 +153,7 @@ async function tryPublishForUser(settings: any): Promise<{ published: boolean; r
   // 6. Publier sur LinkedIn
   const account = user.linkedinAccounts[0]
   const result = await publishPostToLinkedIn({
-    accessToken: account.accessToken,
+    accessToken: decryptLinkedInToken(account.accessToken),
     organizationId: account.organizationId,
     proposalId: proposal.id,
     content: proposal.content + (proposal.hashtags ? `\n\n${proposal.hashtags}` : ''),

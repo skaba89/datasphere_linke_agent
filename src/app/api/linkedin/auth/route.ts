@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { createLinkedInState, verifyLinkedInState } from '@/lib/linkedin-oauth-state'
+import { encryptLinkedInToken } from '@/lib/linkedin-token-crypto'
 import { db } from '@/lib/db'
 import { getCurrentUserId } from '@/lib/auth'
 import { checkPlanLimit } from '@/lib/plans'
@@ -50,7 +52,7 @@ export async function GET() {
     }
 
     // State anti-CSRF
-    const state = Buffer.from(JSON.stringify({ userId, ts: Date.now() })).toString('base64url')
+    const state = createLinkedInState(userId)
 
     const authUrl = new URL(LINKEDIN_AUTH_URL)
     authUrl.searchParams.set('response_type', 'code')
@@ -95,30 +97,8 @@ export async function POST(request: Request) {
       )
     }
 
-    // Vérifier le state (anti-CSRF)
-    let stateData: { userId: string; ts: number }
-    try {
-      stateData = JSON.parse(Buffer.from(state, 'base64url').toString())
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'State invalide' },
-        { status: 400 }
-      )
-    }
-
-    if (stateData.userId !== userId) {
-      return NextResponse.json(
-        { success: false, error: 'State ne correspond pas à l\'utilisateur' },
-        { status: 400 }
-      )
-    }
-
-    // Le state expire après 10 min
-    if (Date.now() - stateData.ts > 10 * 60 * 1000) {
-      return NextResponse.json(
-        { success: false, error: 'State expiré. Réessayez.' },
-        { status: 400 }
-      )
+    if (!verifyLinkedInState(state, userId)) {
+      return NextResponse.json({ success: false, error: 'State OAuth invalide ou expiré' }, { status: 400 })
     }
 
     const clientId = process.env.LINKEDIN_CLIENT_ID!
@@ -187,7 +167,7 @@ export async function POST(request: Request) {
       update: {
         displayName,
         email,
-        accessToken,
+        accessToken: encryptLinkedInToken(accessToken),
         tokenExpiresAt,
         scopes: SCOPES,
         status: 'active',
@@ -198,7 +178,7 @@ export async function POST(request: Request) {
         organizationId,
         displayName,
         email,
-        accessToken,
+        accessToken: encryptLinkedInToken(accessToken),
         tokenExpiresAt,
         scopes: SCOPES,
         status: 'active',
