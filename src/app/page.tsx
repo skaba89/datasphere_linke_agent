@@ -92,7 +92,6 @@ interface Metric {
 // MAIN COMPONENT
 // ============================================================
 export default function Home() {
-  const [view, setView] = useState<'landing' | 'dashboard'>('landing')
   const [activeTab, setActiveTab] = useState('overview')
   const [settings, setSettings] = useState<Settings | null>(null)
   const [proposals, setProposals] = useState<Proposal[]>([])
@@ -102,6 +101,7 @@ export default function Home() {
   const [saving, setSaving] = useState(false)
   const [proposalFilter, setProposalFilter] = useState('all')
   const [user, setUser] = useState<CurrentUser | null>(null)
+  const [authChecked, setAuthChecked] = useState(false)
 
   // ============================================================
   // FETCH FUNCTIONS
@@ -109,16 +109,23 @@ export default function Home() {
   const [dataLoaded, setDataLoaded] = useState(false)
 
   // Au mount : vérifier si l'utilisateur est connecté
+  // Si non connecté → redirect vers /login (pas de landing page)
   useEffect(() => {
     fetch('/api/auth/me')
       .then(r => r.json())
       .then(d => {
         if (d.success && d.data) {
           setUser(d.data)
-          setView('dashboard')
+          loadDashboardData()
+        } else {
+          // Non authentifié → redirect login
+          window.location.href = '/login'
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        window.location.href = '/login'
+      })
+      .finally(() => setAuthChecked(true))
   }, [])
 
   const loadDashboardData = useCallback(async () => {
@@ -137,18 +144,6 @@ export default function Home() {
     if (metricsData.success) setMetrics(metricsData.data)
     setDataLoaded(true)
   }, [])
-
-  const switchToDashboard = useCallback(() => {
-    // Si non connecté, rediriger vers login
-    if (!user) {
-      window.location.href = '/login'
-      return
-    }
-    if (!dataLoaded) {
-      loadDashboardData()
-    }
-    setView('dashboard')
-  }, [dataLoaded, loadDashboardData, user])
 
   const refetchProposals = useCallback(async () => {
     const r = await fetch('/api/proposals')
@@ -241,15 +236,23 @@ export default function Home() {
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' })
     setUser(null)
-    setView('landing')
-    setDataLoaded(false)
+    window.location.href = '/login'
   }
 
   // ============================================================
-  // LANDING PAGE
+  // LOADING STATE (pendant la vérification d'auth)
   // ============================================================
-  if (view === 'landing') {
-    return <LandingPage onLogin={switchToDashboard} onCTA={switchToDashboard} />
+  if (!authChecked || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="h-10 w-10 bg-emerald-600 rounded-lg flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Sparkles className="h-5 w-5 text-white" />
+          </div>
+          <p className="text-slate-500 text-sm">Chargement de LinkedInPost...</p>
+        </div>
+      </div>
+    )
   }
 
   // ============================================================
@@ -269,14 +272,14 @@ export default function Home() {
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200 flex-col">
-        <DashboardSidebar items={sidebarItems} activeTab={activeTab} onNav={handleNavClick} onBack={() => setView('landing')} user={user} onLogout={handleLogout} />
+        <DashboardSidebar items={sidebarItems} activeTab={activeTab} onNav={handleNavClick} onBack={() => window.location.href = '/login'} user={user} onLogout={handleLogout} />
       </aside>
 
       {/* Mobile Sidebar */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <SheetContent side="left" className="w-72 p-0">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <DashboardSidebar items={sidebarItems} activeTab={activeTab} onNav={handleNavClick} onBack={() => { setView('landing'); setSidebarOpen(false) }} user={user} onLogout={handleLogout} />
+          <DashboardSidebar items={sidebarItems} activeTab={activeTab} onNav={handleNavClick} onBack={() => window.location.href = '/login'} user={user} onLogout={handleLogout} />
         </SheetContent>
       </Sheet>
 
@@ -287,7 +290,7 @@ export default function Home() {
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="font-bold text-lg text-slate-900">DataSphere</span>
+          <span className="font-bold text-lg text-slate-900">LinkedInPost</span>
           <div className="ml-auto">
             <NotificationBell />
           </div>
@@ -369,7 +372,7 @@ function DashboardSidebar({ items, activeTab, onNav, onBack, user, onLogout }: {
         <div className="h-8 w-8 bg-emerald-600 rounded-lg flex items-center justify-center">
           <Sparkles className="h-4 w-4 text-white" />
         </div>
-        <span className="font-bold text-lg text-slate-900">DataSphere</span>
+        <span className="font-bold text-lg text-slate-900">LinkedInPost</span>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
@@ -1346,7 +1349,7 @@ function LandingPage({ onLogin, onCTA }: { onLogin: () => void; onCTA: () => voi
               <div className="h-8 w-8 bg-emerald-600 rounded-lg flex items-center justify-center">
                 <Sparkles className="h-4 w-4 text-white" />
               </div>
-              <span className="font-bold text-xl text-slate-900">DataSphere</span>
+              <span className="font-bold text-xl text-slate-900">LinkedInPost</span>
             </div>
             <div className="hidden md:flex items-center gap-8">
               <a href="#fonctionnalites" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">Fonctionnalités</a>
@@ -1403,7 +1406,7 @@ function LandingPage({ onLogin, onCTA }: { onLogin: () => void; onCTA: () => voi
               variants={fadeInUp}
               custom={2}
             >
-              DataSphere génère, optimise et planifie automatiquement votre contenu LinkedIn.
+              LinkedInPost génère, optimise et planifie automatiquement votre contenu LinkedIn.
               Gagnez du temps, boostez votre engagement et développez votre réseau plus rapidement.
             </motion.p>
 
@@ -1439,7 +1442,7 @@ function LandingPage({ onLogin, onCTA }: { onLogin: () => void; onCTA: () => voi
                   </Avatar>
                   <div>
                     <p className="font-semibold text-slate-900">Alexandre Dupont</p>
-                    <p className="text-sm text-slate-500">CEO @ DataSphere · IA & Marketing</p>
+                    <p className="text-sm text-slate-500">CEO @ LinkedInPost · IA & Marketing</p>
                   </div>
                   <Badge className="ml-auto bg-emerald-100 text-emerald-700 text-xs">
                     <Sparkles className="h-3 w-3 mr-1" />
@@ -1708,21 +1711,21 @@ function LandingPage({ onLogin, onCTA }: { onLogin: () => void; onCTA: () => voi
                 name: 'Sophie Martin',
                 role: 'CEO, TechVision',
                 initials: 'SM',
-                text: "DataSphere a complètement transformé ma stratégie LinkedIn. Mon engagement a triplé en seulement 2 mois. L'IA comprend parfaitement mon ton et mon audience. Un outil indispensable !",
+                text: "LinkedInPost a complètement transformé ma stratégie LinkedIn. Mon engagement a triplé en seulement 2 mois. L'IA comprend parfaitement mon ton et mon audience. Un outil indispensable !",
                 stars: 5,
               },
               {
                 name: 'Thomas Leclerc',
                 role: 'Directeur Marketing, ScaleUp',
                 initials: 'TL',
-                text: "En tant que CMO, j'ai testé de nombreux outils. DataSphere est de loin le meilleur pour le contenu LinkedIn. Le Smart Poster nous fait gagner 3 heures par semaine et la qualité est au rendez-vous.",
+                text: "En tant que CMO, j'ai testé de nombreux outils. LinkedInPost est de loin le meilleur pour le contenu LinkedIn. Le Smart Poster nous fait gagner 3 heures par semaine et la qualité est au rendez-vous.",
                 stars: 5,
               },
               {
                 name: 'Marie Dubois',
                 role: 'Consultante, Growth Partners',
                 initials: 'MD',
-                text: "Je recommande DataSphere à tous mes clients. L'approche IA est pertinente et les résultats sont concrets : +200% d'abonnés en 3 mois. L'interface est intuitive et le support est réactif.",
+                text: "Je recommande LinkedInPost à tous mes clients. L'approche IA est pertinente et les résultats sont concrets : +200% d'abonnés en 3 mois. L'interface est intuitive et le support est réactif.",
                 stars: 5,
               },
             ].map((testimonial, i) => (
@@ -1777,7 +1780,7 @@ function LandingPage({ onLogin, onCTA }: { onLogin: () => void; onCTA: () => voi
                 Prêt à transformer votre LinkedIn ?
               </h2>
               <p className="mt-4 text-lg text-slate-300 max-w-xl mx-auto">
-                Rejoignez plus de 500 professionnels qui font confiance à DataSphere pour développer leur présence en ligne.
+                Rejoignez plus de 500 professionnels qui font confiance à LinkedInPost pour développer leur présence en ligne.
               </p>
               <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
                 <Button
@@ -1813,7 +1816,7 @@ function LandingPage({ onLogin, onCTA }: { onLogin: () => void; onCTA: () => voi
                 <div className="h-8 w-8 bg-emerald-600 rounded-lg flex items-center justify-center">
                   <Sparkles className="h-4 w-4 text-white" />
                 </div>
-                <span className="font-bold text-lg text-white">DataSphere</span>
+                <span className="font-bold text-lg text-white">LinkedInPost</span>
               </div>
               <p className="text-sm text-slate-400 leading-relaxed">Transformez votre présence LinkedIn avec la puissance de l&apos;IA.</p>
             </div>
@@ -1854,7 +1857,7 @@ function LandingPage({ onLogin, onCTA }: { onLogin: () => void; onCTA: () => voi
           <Separator className="my-8 bg-slate-800" />
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-slate-500">© 2025 DataSphere. Tous droits réservés.</p>
+            <p className="text-sm text-slate-500">© 2025 LinkedInPost. Tous droits réservés.</p>
             <div className="flex items-center gap-4">
               <a href="#" className="text-slate-500 hover:text-white transition-colors"><Globe className="h-5 w-5" /></a>
               <a href="#" className="text-slate-500 hover:text-white transition-colors"><MessageCircle className="h-5 w-5" /></a>

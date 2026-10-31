@@ -42,10 +42,10 @@ export default function LoginPage() {
         <CardHeader className="space-y-1">
           <Link href="/" className="flex items-center gap-2 mb-4">
             <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white text-sm">DS</span>
-            <span className="font-bold text-lg">DataSphere</span>
+            <span className="font-bold text-lg">LinkedInPost</span>
           </Link>
           <CardTitle>Connexion</CardTitle>
-          <CardDescription>Accédez à votre tableau de bord DataSphere</CardDescription>
+          <CardDescription>Accédez à votre tableau de bord LinkedInPost</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">

@@ -28,7 +28,7 @@ export default function RegisterPage() {
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Erreur')
       }
-      toast.success('Compte créé ! Bienvenue sur DataSphere 🎉')
+      toast.success('Compte créé ! Bienvenue sur LinkedInPost 🎉')
       router.push('/onboarding')
     } catch (err: any) {
       toast.error(err.message)
@@ -43,7 +43,7 @@ export default function RegisterPage() {
         <CardHeader className="space-y-1">
           <Link href="/" className="flex items-center gap-2 mb-4">
             <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white text-sm">DS</span>
-            <span className="font-bold text-lg">DataSphere</span>
+            <span className="font-bold text-lg">LinkedInPost</span>
           </Link>
           <CardTitle className="text-2xl flex items-center gap-2">
             Créer un compte <Sparkles className="w-5 h-5 text-yellow-500" />

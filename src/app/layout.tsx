@@ -15,30 +15,29 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DataSphere — Automatisez votre présence LinkedIn avec l'IA",
+  title: "LinkedInPost — Gestion intelligente de contenu LinkedIn",
   description:
-    "DataSphere génère, optimise et publie automatiquement vos posts LinkedIn. Smart Poster IA, analytics avancées, planification intelligente.",
+    "Générez, planifiez et publiez automatiquement vos posts LinkedIn avec l'IA. Analytics, planification intelligente, multi-comptes.",
   keywords: [
-    "LinkedIn", "IA", "automation", "Smart Poster", "content marketing",
-    "SaaS", "DataSphere", "publication automatique",
+    "LinkedIn", "IA", "automation", "content marketing",
+    "SaaS", "LinkedInPost", "publication automatique", "gestion contenu",
   ],
-  authors: [{ name: "DataSphere" }],
+  authors: [{ name: "LinkedInPost" }],
   icons: {
     icon: "/logo.svg",
   },
   openGraph: {
-    title: "DataSphere — LinkedIn Automation by IA",
+    title: "LinkedInPost — Gestion intelligente de contenu LinkedIn",
     description:
-      "Générez, optimisez et publiez vos posts LinkedIn automatiquement. Essai gratuit 14 jours.",
-    url: "https://datasphere.app",
-    siteName: "DataSphere",
+      "Générez, planifiez et publiez vos posts LinkedIn automatiquement.",
+    siteName: "LinkedInPost",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "DataSphere — LinkedIn Automation by IA",
+    title: "LinkedInPost — Gestion de contenu LinkedIn",
     description:
-      "Générez, optimisez et publiez vos posts LinkedIn automatiquement.",
+      "Générez, planifiez et publiez vos posts LinkedIn automatiquement.",
   },
 };
 

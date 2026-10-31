@@ -142,7 +142,7 @@ function OnboardingContent() {
           <Badge variant="secondary" className="mb-3">
             Étape {step + 1} / {STEPS.length}
           </Badge>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Bienvenue sur DataSphere 🎉</h1>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Bienvenue sur LinkedInPost 🎉</h1>
           <p className="text-slate-600">Configurez votre compte en moins de 2 minutes.</p>
           <Progress value={progress} className="mt-4" />
         </div>

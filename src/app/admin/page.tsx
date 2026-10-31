@@ -113,7 +113,7 @@ export default function AdminPage() {
         <nav className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 font-bold text-xl">
             <Crown className="h-6 w-6 text-amber-500" />
-            DataSphere Admin
+            LinkedInPost Admin
           </div>
           <Link href="/" className="text-sm text-slate-600 hover:text-slate-900 flex items-center gap-1">
             <ArrowLeft className="h-4 w-4" />

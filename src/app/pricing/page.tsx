@@ -18,7 +18,7 @@ export default function PricingPage() {
       name: 'Free',
       price: 0,
       period: '/mois',
-      description: 'Pour découvrir DataSphere',
+      description: 'Pour découvrir LinkedInPost',
       features: [
         '1 compte LinkedIn',
         '3 propositions de posts / jour',
@@ -122,7 +122,7 @@ export default function PricingPage() {
         <nav className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 font-bold text-xl">
             <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white text-sm">DS</span>
-            DataSphere
+            LinkedInPost
           </Link>
           <div className="flex items-center gap-4">
             <Link href="/pricing" className="text-sm font-medium text-slate-600 hover:text-slate-900">Tarifs</Link>

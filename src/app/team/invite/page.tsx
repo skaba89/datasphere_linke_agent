@@ -105,7 +105,7 @@ function AcceptInvitationContent() {
           </div>
           <CardTitle className="text-2xl">Vous êtes invité !</CardTitle>
           <CardDescription>
-            Rejoignez l'équipe <strong>"{invitation?.teamName}"</strong> sur DataSphere
+            Rejoignez l'équipe <strong>"{invitation?.teamName}"</strong> sur LinkedInPost
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
