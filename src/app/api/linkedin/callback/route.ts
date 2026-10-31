@@ -7,14 +7,12 @@ import { getAppUrl } from '@/lib/app-url'
 
 // ============================================================
 // GET /api/linkedin/callback
-// Route de callback OAuth LinkedIn (au cas où on configure le
-// redirect_uri directement vers cette URL)
-//
+// Callback OAuth LinkedIn — LinkedIn redirige ici après autorisation
 // ?code=XXX&state=YYY
 // ============================================================
 
 const LINKEDIN_TOKEN_URL = 'https://www.linkedin.com/oauth/v2/accessToken'
-const SCOPES = ['r_liteprofile', 'r_emailaddress', 'w_member_social'].join(' ')
+const SCOPES = ['openid', 'profile', 'email', 'w_member_social'].join(' ')
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -22,40 +20,31 @@ export async function GET(request: Request) {
   const state = searchParams.get('state')
   const error = searchParams.get('error')
 
-  // Frontend URL (pour rediriger après traitement)
-  // Utilise getAppUrl() qui gère RENDER_EXTERNAL_URL automatiquement
   const appUrl = getAppUrl(request)
 
   if (error) {
-    return NextResponse.redirect(
-      new URL(`/onboarding?error=${encodeURIComponent(error)}`, appUrl)
-    )
+    return NextResponse.redirect(new URL(`/?linkedin_error=${encodeURIComponent(error)}`, appUrl))
   }
 
   if (!code || !state) {
-    return NextResponse.redirect(
-      new URL('/onboarding?error=missing_params', appUrl)
-    )
+    return NextResponse.redirect(new URL('/?linkedin_error=missing_params', appUrl))
   }
 
   const userId = await getCurrentUserId()
   if (!userId || !verifyLinkedInState(state, userId)) {
-    return NextResponse.redirect(new URL('/onboarding?error=invalid_state', appUrl))
+    return NextResponse.redirect(new URL('/?linkedin_error=invalid_state', appUrl))
   }
 
   const clientId = process.env.LINKEDIN_CLIENT_ID
   const clientSecret = process.env.LINKEDIN_CLIENT_SECRET
-  // Auto-déduire le redirect URI depuis RENDER_EXTERNAL_URL si pas défini
   const redirectUri = process.env.LINKEDIN_REDIRECT_URI || `${appUrl}/api/linkedin/callback`
 
   if (!clientId || !clientSecret || !redirectUri) {
-    return NextResponse.redirect(
-      new URL('/onboarding?error=config_missing', appUrl)
-    )
+    return NextResponse.redirect(new URL('/?linkedin_error=config_missing', appUrl))
   }
 
   try {
-    // Échange code -> access token
+    // 1. Échange code → access token
     const tokenRes = await fetch(LINKEDIN_TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -70,75 +59,53 @@ export async function GET(request: Request) {
 
     if (!tokenRes.ok) {
       const errText = await tokenRes.text()
-      console.error('[LinkedIn callback token exchange failed]', errText)
-      return NextResponse.redirect(
-        new URL(`/onboarding?error=token_exchange_failed`, appUrl)
-      )
+      console.error('[LinkedIn callback] Token exchange failed:', tokenRes.status, errText)
+      return NextResponse.redirect(new URL('/?linkedin_error=token_exchange_failed', appUrl))
     }
 
     const tokenData = await tokenRes.json()
     const accessToken = tokenData.access_token
-    const tokenExpiresAt = new Date(Date.now() + tokenData.expires_in * 1000)
+    const expiresIn = tokenData.expires_in || 5184000
+    const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000)
 
-    // Récupérer le profil LinkedIn
-    const profileRes = await fetch('https://api.linkedin.com/v2/me', {
+    // 2. Récupérer le profil via OpenID Connect /v2/userinfo
+    const profileRes = await fetch('https://api.linkedin.com/v2/userinfo', {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
+
     if (!profileRes.ok) {
-      return NextResponse.redirect(
-        new URL('/onboarding?error=profile_fetch_failed', appUrl)
-      )
+      const errText = await profileRes.text()
+      console.error('[LinkedIn callback] Profile fetch failed:', profileRes.status, errText)
+      return NextResponse.redirect(new URL('/?linkedin_error=profile_failed', appUrl))
     }
+
     const profile = await profileRes.json()
-    const organizationId = `urn:li:person:${profile.id}`
-    const displayName = [profile.localizedFirstName, profile.localizedLastName]
-      .filter(Boolean).join(' ') || 'Utilisateur LinkedIn'
+    const organizationId = `urn:li:person:${profile.sub}`
+    const displayName = profile.name || [profile.given_name, profile.family_name].filter(Boolean).join(' ') || 'Utilisateur LinkedIn'
+    const email = profile.email || null
+    const pictureUrl = profile.picture || null
 
-    // Récupérer l'email
-    let email: string | null = null
-    try {
-      const emailRes = await fetch(
-        'https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))',
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      )
-      if (emailRes.ok) {
-        const emailData = await emailRes.json()
-        email = emailData.elements?.[0]?.['handle~']?.emailAddress || null
-      }
-    } catch {}
-
-    // Upsert
+    // 3. Upsert
     await db.linkedInAccount.upsert({
       where: { userId_organizationId: { userId, organizationId } },
       update: {
-        displayName,
-        email,
+        displayName, email, pictureUrl,
         accessToken: encryptLinkedInToken(accessToken),
-        tokenExpiresAt,
-        scopes: SCOPES,
-        status: 'active',
-        lastSyncAt: new Date(),
+        tokenExpiresAt, scopes: SCOPES,
+        status: 'active', lastSyncAt: new Date(),
       },
       create: {
-        userId,
-        organizationId,
-        displayName,
-        email,
+        userId, organizationId, displayName, email, pictureUrl,
         accessToken: encryptLinkedInToken(accessToken),
-        tokenExpiresAt,
-        scopes: SCOPES,
-        status: 'active',
-        lastSyncAt: new Date(),
+        tokenExpiresAt, scopes: SCOPES,
+        status: 'active', lastSyncAt: new Date(),
       },
     })
 
-    return NextResponse.redirect(
-      new URL('/onboarding?linkedin=connected', appUrl)
-    )
+    // 4. Rediriger vers le dashboard avec succès
+    return NextResponse.redirect(new URL('/?linkedin=connected', appUrl))
   } catch (err: any) {
     console.error('[LinkedIn callback error]', err)
-    return NextResponse.redirect(
-      new URL(`/onboarding?error=${encodeURIComponent('server_error')}`, appUrl)
-    )
+    return NextResponse.redirect(new URL('/?linkedin_error=server_error', appUrl))
   }
 }
