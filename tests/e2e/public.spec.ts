@@ -19,12 +19,12 @@ test.describe('Public pages', () => {
 
   test('login page loads', async ({ page }) => {
     await page.goto('/login')
-    await expect(page.locator('h2')).toContainText('Connexion')
+    await expect(page.getByText('Connexion', { exact: true })).toBeVisible()
   })
 
   test('register page loads', async ({ page }) => {
     await page.goto('/register')
-    await expect(page.locator('h2')).toContainText('Créer un compte')
+    await expect(page.getByText('Créer un compte', { exact: true })).toBeVisible()
   })
 
   test('onboarding redirects to /login if unauthenticated', async ({ page }) => {
@@ -78,6 +78,7 @@ test.describe('Middleware protection', () => {
     const regRes = await request.post('/api/auth/register', {
       data: { email, password: 'Password123!' },
     })
+    expect(regRes.status()).toBe(201)
     const cookies = regRes.headers()['set-cookie'].split(';')[0]
 
     // Aller sur /login avec le cookie → doit rediriger vers /
