@@ -19,7 +19,7 @@ export async function GET() {
   try {
     const userId = await getCurrentUserId()
 
-    // Mode démo (non authentifié) -> settings globaux legacy
+    // Mode non authentifié -> settings globaux legacy (rétrocompatibilité)
     if (!userId) {
       let settings = await db.smartPosterSettings.findFirst({
         where: { userId: null as any },

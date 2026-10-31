@@ -232,7 +232,7 @@ function OnboardingContent() {
                     {connecting ? 'Connexion...' : 'Connecter mon compte LinkedIn'}
                   </Button>
                   <p className="text-xs text-blue-700 mt-3 text-center">
-                    Mode démo : simulation de connexion (pas d'OAuth réel)
+                    Connexion sécurisée via OAuth 2.0 — vos identifiants ne transitent jamais par nos serveurs
                   </p>
                 </div>
               )}

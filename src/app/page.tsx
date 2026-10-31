@@ -1615,7 +1615,7 @@ function LandingPage({ onLogin, onCTA }: { onLogin: () => void; onCTA: () => voi
               </Button>
               <Button size="lg" variant="outline" className="text-base px-8 h-12" onClick={onLogin}>
                 <Play className="h-4 w-4 mr-2" />
-                Voir la démo
+                Démarrer
               </Button>
             </motion.div>
 
@@ -1987,7 +1987,7 @@ function LandingPage({ onLogin, onCTA }: { onLogin: () => void; onCTA: () => voi
                   className="border-slate-600 text-white hover:bg-slate-800 text-base px-8 h-12"
                   onClick={onLogin}
                 >
-                  Voir la démo
+                  Démarrer
                 </Button>
               </div>
               <p className="mt-6 text-sm text-slate-400">14 jours d&apos;essai gratuit · Sans carte bancaire · Annulation à tout moment</p>

@@ -14,7 +14,7 @@ import {
 import { toast } from 'sonner'
 import {
   Users, FileText, Calendar, TrendingUp, Check, X, AlertCircle,
-  Plus, Activity, Target, ChevronRight, Sparkles, Loader2
+  Plus, Activity, Target, ChevronRight, Loader2
 } from 'lucide-react'
 
 interface DashboardData {
@@ -53,7 +53,6 @@ export function AgencyDashboard({ user, onNav }: { user: any; onNav?: (tab: stri
   const [newClientName, setNewClientName] = useState('')
   const [newClientGoal, setNewClientGoal] = useState('20')
   const [adding, setAdding] = useState(false)
-  const [seeding, setSeeding] = useState(false)
 
   const loadDashboard = () => {
     fetch('/api/dashboard')
@@ -84,22 +83,6 @@ export function AgencyDashboard({ user, onNav }: { user: any; onNav?: (tab: stri
       toast.error(err.message)
     } finally {
       setAdding(false)
-    }
-  }
-
-  const handleSeedDemo = async () => {
-    if (!confirm('Créer 2 clients de démo + ~32 posts ? Cela peuplera votre dashboard.')) return
-    setSeeding(true)
-    try {
-      const res = await fetch('/api/demo/seed', { method: 'POST' })
-      const d = await res.json()
-      if (!d.success) throw new Error(d.error)
-      toast.success(`${d.data.clientsCreated} clients et ${d.data.postsCreated} posts créés !`)
-      loadDashboard()
-    } catch (err: any) {
-      toast.error(err.message)
-    } finally {
-      setSeeding(false)
     }
   }
 
@@ -169,17 +152,6 @@ export function AgencyDashboard({ user, onNav }: { user: any; onNav?: (tab: stri
           <p className="text-slate-500 mt-1">Voici un aperçu de votre activité LinkedIn</p>
         </div>
         <div className="flex gap-2">
-          {stats.activeClients === 0 && (
-            <Button
-              onClick={handleSeedDemo}
-              disabled={seeding}
-              variant="outline"
-              className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-            >
-              {seeding ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-              Données de démo
-            </Button>
-          )}
           <Dialog open={showAddClient} onOpenChange={setShowAddClient}>
             <DialogTrigger asChild>
               <Button>
@@ -262,10 +234,14 @@ export function AgencyDashboard({ user, onNav }: { user: any; onNav?: (tab: stri
         </CardHeader>
         <CardContent>
           {clientPerformance.length === 0 ? (
-            <div className="text-center py-8">
+            <div className="text-center py-12">
               <Users className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-500 mb-1">Aucun client pour le moment</p>
-              <p className="text-sm text-slate-400">Ajoutez un client pour commencer à suivre ses performances</p>
+              <p className="text-slate-700 font-medium mb-1">Aucun client pour le moment</p>
+              <p className="text-sm text-slate-400 mb-4">Ajoutez votre premier client pour commencer à suivre ses performances LinkedIn</p>
+              <Button onClick={() => setShowAddClient(true)} variant="outline" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                <Plus className="h-4 w-4 mr-2" />
+                Ajouter mon premier client
+              </Button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
