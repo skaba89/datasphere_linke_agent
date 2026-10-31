@@ -41,19 +41,25 @@ export function getActiveProvider(): string | null {
 // ============================================================
 async function callGemini(params: ChatParams): Promise<ChatResult> {
   const apiKey = process.env.GEMINI_API_KEY!
-  // Liste des modèles à essayer dans l'ordre (au cas où l'un est déprécié)
+  // Liste des modèles à essayer dans l'ordre
+  // D'abord lister les modèles disponibles via l'API, puis fallback
   const models = [
     process.env.GEMINI_MODEL,
+    'gemini-flash-latest',
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
     'gemini-1.5-flash',
     'gemini-1.5-flash-latest',
     'gemini-1.5-pro',
-    'gemini-2.0-flash',
+    'gemini-pro',
   ].filter(Boolean) as string[]
 
   let lastError = ''
   for (const model of models) {
+    // Utiliser v2beta pour les modèles récents, v1beta pour les anciens
+    const apiVersion = model.startsWith('gemini-2.') || model.startsWith('gemini-flash') ? 'v2beta' : 'v1beta'
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -74,7 +80,6 @@ async function callGemini(params: ChatParams): Promise<ChatResult> {
     }
     lastError = `${res.status}: ${await res.text()}`
     // Si c'est une 404 (model not found), essayer le suivant
-    // Si c'est une 403/429 (quota/auth), ne pas essayer les autres
     if (res.status !== 404) break
   }
   throw new Error(`Gemini API error: ${lastError}`)
