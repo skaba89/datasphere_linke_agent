@@ -118,9 +118,74 @@ export async function POST() {
       postCount++
     }
 
+    // ─── Créer des prospects de démo ───
+    const DEMO_PROSPECTS = [
+      { name: 'Marie Dubois', company: 'TechCorp', title: 'CMO', stage: 'replied' },
+      { name: 'Thomas Laurent', company: 'DataInc', title: 'CTO', stage: 'contacted' },
+      { name: 'Sarah Martin', company: 'GrowthLab', title: 'Head of Marketing', stage: 'meeting' },
+      { name: 'Pierre Nguyen', company: 'FinTech SAS', title: 'CEO', stage: 'new' },
+      { name: 'Julie Rousseau', company: 'CloudSys', title: 'VP Engineering', stage: 'won' },
+      { name: 'Alex Bernard', company: 'StartupX', title: 'Founder', stage: 'contacted' },
+    ]
+    let prospectCount = 0
+    for (const p of DEMO_PROSPECTS) {
+      await db.prospect.create({
+        data: {
+          userId,
+          name: p.name, company: p.company, title: p.title, stage: p.stage,
+          linkedinUrl: `https://linkedin.com/in/${p.name.toLowerCase().replace(' ', '-')}`,
+          notes: 'Prospect de démonstration',
+          tags: 'démo,B2B',
+        },
+      })
+      prospectCount++
+    }
+
+    // ─── Créer des commentaires de démo ───
+    const DEMO_COMMENTS = [
+      { commenterName: 'Marie Dubois', commenterText: "Super post ! J'ai exactement la même problématique en ce moment.", sentiment: 'positive', status: 'pending' },
+      { commenterName: 'Thomas Laurent', commenterText: "Intéressant mais je ne suis pas d'accord sur le point 3. Mon expérience est différente.", sentiment: 'neutral', status: 'pending' },
+      { commenterName: 'Sarah Martin', commenterText: "Merci pour ce partage, ça confirme ce que je pensais !", sentiment: 'positive', status: 'approved' },
+      { commenterName: 'Anonyme', commenterText: "C'est gentiment dit mais franchement ça ne marche pas en vrai...", sentiment: 'negative', status: 'pending' },
+      { commenterName: 'Pierre Nguyen', commenterText: "Quelle est la source de tes données ? Je trouve ça hard à croire.", sentiment: 'neutral', status: 'pending' },
+    ]
+    let commentCount = 0
+    for (const c of DEMO_COMMENTS) {
+      await db.commentReply.create({
+        data: {
+          userId,
+          commenterName: c.commenterName,
+          commenterText: c.commenterText,
+          generatedReply: 'Réponse IA en attente de génération. Cliquez sur "Automatiser" pour la générer.',
+          sentiment: c.sentiment,
+          status: c.status,
+        },
+      })
+      commentCount++
+    }
+
+    // ─── Créer une séquence CRM de démo ───
+    await db.crmSequence.create({
+      data: {
+        userId,
+        name: 'Séquence de bienvenue B2B',
+        description: 'Séquence de premiers contacts pour prospects froids',
+        steps: [
+          { day: 1, subject: 'Premier contact', body: 'Message personnalisé de première prise de contact' },
+          { day: 4, subject: 'Follow-up', body: 'Relance avec apport de valeur (article, ressource)' },
+          { day: 10, subject: 'Dernier rappel', body: 'Dernière relance douce' },
+        ],
+      },
+    })
+
     return NextResponse.json({
       success: true,
-      data: { clientsCreated: createdClients.length, postsCreated: postCount },
+      data: {
+        clientsCreated: createdClients.length,
+        postsCreated: postCount,
+        prospectsCreated: prospectCount,
+        commentsCreated: commentCount,
+      },
     }, { status: 201 })
   } catch (error: any) {
     console.error('[POST /api/demo/seed]', error)

@@ -34,6 +34,7 @@ import { NotificationBell } from '@/components/notification-bell'
 import { AgencyDashboard } from '@/components/agency-dashboard'
 import { CalendarTab, TemplatesTab, LogsTab, ReportsTab, AgentIATab, ProfileTab, ComingSoonTab, ProspectingTab, PipelineTab, CrmTab, NetworkingTab, MessagesTab } from '@/components/dashboard-tabs'
 import { CommentsTab } from '@/components/comments-tab'
+import { ScoutTab } from '@/components/scout-tab'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, LineChart, Line, BarChart, Bar, Legend
@@ -412,10 +413,9 @@ export default function Home() {
                 <ProfileTab />
               </motion.div>
             )}
-            {/* Coming soon tabs */}
-            {['mission-scout'].includes(activeTab) && (
-              <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-                <ComingSoonTab title="Mission Scout" description="Identifiez les opportunités et tendances." icon={Search} />
+            {activeTab === 'mission-scout' && (
+              <motion.div key="mission-scout" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <ScoutTab />
               </motion.div>
             )}
             {activeTab === 'messages' && (
