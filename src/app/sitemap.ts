@@ -1,11 +1,12 @@
 import type { MetadataRoute } from 'next'
 import { BLOG_ARTICLES } from '@/lib/blog'
+import { getAppUrl } from '@/lib/app-url'
 
 // ============================================================
 // sitemap.xml généré dynamiquement par Next.js
 // ============================================================
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://datasphere.app'
+  const baseUrl = getAppUrl()
 
   const staticPages: MetadataRoute.Sitemap = [
     {

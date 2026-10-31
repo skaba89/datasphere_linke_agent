@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getAppUrl } from '@/lib/app-url'
 
 // ============================================================
 // GET /api/linkedin/callback
@@ -13,13 +14,14 @@ const LINKEDIN_TOKEN_URL = 'https://www.linkedin.com/oauth/v2/accessToken'
 const SCOPES = ['r_liteprofile', 'r_emailaddress', 'w_member_social'].join(' ')
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url)
+  const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
   const state = searchParams.get('state')
   const error = searchParams.get('error')
 
   // Frontend URL (pour rediriger après traitement)
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || origin
+  // Utilise getAppUrl() qui gère RENDER_EXTERNAL_URL automatiquement
+  const appUrl = getAppUrl(request)
 
   if (error) {
     return NextResponse.redirect(

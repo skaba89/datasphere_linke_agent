@@ -43,8 +43,10 @@ export async function GET() {
     DATABASE_URL: !!process.env.DATABASE_URL,
     DATASPHERE_AUTH_SECRET: !!process.env.DATASPHERE_AUTH_SECRET,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'NOT_SET',
+    RENDER_EXTERNAL_URL: process.env.RENDER_EXTERNAL_URL || 'NOT_SET',
     PORT: process.env.PORT || '10000',
     NODE_ENV: process.env.NODE_ENV || 'NOT_SET',
+    RENDER_SERVICE_NAME: process.env.RENDER_SERVICE_NAME || 'NOT_SET',
   }
 
   // ─── Integrations ───

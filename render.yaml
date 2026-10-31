@@ -43,12 +43,14 @@ services:
       - key: DATASPHERE_AUTH_SECRET
         generateValue: true
 
-      # URL publique de l'app (auto depuis Render)
+      # URL publique de l'app
+      # ⚠️ Render ne permet pas de self-référence avec fromService.hosturl
+      # Solution : Render expose automatiquement RENDER_EXTERNAL_URL
+      # Le code utilise : NEXT_PUBLIC_APP_URL || RENDER_EXTERNAL_URL || fallback
+      # Donc pas besoin de définir cette variable manuellement.
+      # (Laissez vide, le code s'adapte automatiquement)
       - key: NEXT_PUBLIC_APP_URL
-        fromService:
-          type: web
-          name: datasphere
-          property: hosturl
+        sync: false
 
       # LinkedIn OAuth (à définir manuellement dans Render dashboard)
       - key: LINKEDIN_CLIENT_ID

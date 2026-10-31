@@ -1,10 +1,11 @@
 import type { MetadataRoute } from 'next'
+import { getAppUrl } from '@/lib/app-url'
 
 // ============================================================
 // robots.txt généré par Next.js
 // ============================================================
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://datasphere.app'
+  const baseUrl = getAppUrl()
 
   return {
     rules: [

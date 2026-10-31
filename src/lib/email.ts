@@ -7,8 +7,14 @@
 // Si Resend n'est pas configuré, les emails sont loggés (dev mode)
 // ============================================================
 
+import { getAppUrl } from '@/lib/app-url'
+
 const FROM_EMAIL = process.env.FROM_EMAIL || 'DataSphere <noreply@datasphere.app>'
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:10000'
+
+// Récupère l'URL de l'app dynamiquement (gère RENDER_EXTERNAL_URL automatiquement)
+function getAppUrlForEmail(): string {
+  return getAppUrl()
+}
 
 interface EmailPayload {
   to: string
@@ -74,8 +80,8 @@ export async function sendWelcomeEmail(to: string, name: string | null): Promise
             <li>Publier automatiquement sur LinkedIn</li>
             <li>Suivre vos analytics en temps réel</li>
           </ul>
-          <a href="${APP_URL}/onboarding" style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 16px; font-weight: 500;">Commencer l'onboarding</a>
-          <p style="color: #94a3b8; font-size: 13px; margin-top: 24px;">Si le bouton ne fonctionne pas, copiez ce lien : ${APP_URL}/onboarding</p>
+          <a href="${getAppUrlForEmail()}/onboarding" style="display: inline-block; background: #10b981; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 16px; font-weight: 500;">Commencer l'onboarding</a>
+          <p style="color: #94a3b8; font-size: 13px; margin-top: 24px;">Si le bouton ne fonctionne pas, copiez ce lien : ${getAppUrlForEmail()}/onboarding</p>
         </div>
       </div>
     `,
@@ -101,7 +107,7 @@ export async function sendTrialExpiringEmail(
         <div style="background: white; padding: 32px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
           <p>Votre essai Pro se termine le <strong>${trialEndsAt.toLocaleDateString('fr-FR')}</strong>.</p>
           <p>Pour continuer à profiter de DataSphere sans interruption, passez à l'offre Pro (29€/mois) ou Business (79€/mois).</p>
-          <a href="${APP_URL}/pricing" style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 16px; font-weight: 500;">Voir les offres</a>
+          <a href="${getAppUrlForEmail()}/pricing" style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; margin-top: 16px; font-weight: 500;">Voir les offres</a>
         </div>
       </div>
     `,
@@ -119,7 +125,7 @@ export async function sendTeamInvitationEmail(params: {
   isNewUser: boolean
 }): Promise<void> {
   const { to, teamName, inviterName, invitationToken, isNewUser } = params
-  const acceptUrl = `${APP_URL}/team/invite?token=${invitationToken}`
+  const acceptUrl = `${getAppUrlForEmail()}/team/invite?token=${invitationToken}`
 
   await sendEmail({
     to,

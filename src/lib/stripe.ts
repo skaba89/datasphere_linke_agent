@@ -37,12 +37,6 @@ export const PLAN_TO_STRIPE_PRICE: Record<string, string | undefined> = {
 
 // ============================================================
 // Helper : construire l'URL de l'app (Render en prod, localhost en dev)
+// Délègue à src/lib/app-url.ts (gère RENDER_EXTERNAL_URL automatiquement)
 // ============================================================
-export function getAppUrl(request?: Request): string {
-  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL
-  if (request) {
-    const url = new URL(request.url)
-    return `${url.protocol}//${url.host}`
-  }
-  return 'http://localhost:10000'
-}
+export { getAppUrl } from '@/lib/app-url'
