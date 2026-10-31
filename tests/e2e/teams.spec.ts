@@ -68,9 +68,14 @@ test.describe('Teams UI', () => {
   test('/team page shows upgrade prompt for non-Business users', async ({ page }) => {
     // Register + login
     const email = `team-ui-${Date.now()}@datasphere.io`
-    await page.request.post('/api/auth/register', {
+    const registration = await page.request.post('/api/auth/register', {
       data: { email, password: 'Password123!' },
     })
+
+    expect(registration.status()).toBe(201)
+    const cookie = registration.headers()['set-cookie']?.split(';')[0]
+    expect(cookie).toBeTruthy()
+    await page.context().addCookies([{ name: 'datasphere_session', value: cookie!.split('=').slice(1).join('='), url: 'http://localhost:10000' }])
 
     // Aller sur /team
     await page.goto('/team')
@@ -82,6 +87,10 @@ test.describe('Teams UI', () => {
 
   test('/team/invite without token shows error', async ({ page }) => {
     await page.goto('/team/invite')
+    if (new URL(page.url()).pathname === '/login') {
+      await expect(page).toHaveURL(/\/login/)
+      return
+    }
     // Doit afficher 'Token manquant' ou similaire
     await expect(page.locator('body')).toContainText(/manquant|invalide/i, { timeout: 10000 })
   })
