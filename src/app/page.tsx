@@ -27,6 +27,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/s
 import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { LinkedInAccountSwitcher } from '@/components/linkedin-account-switcher'
+import { NotificationBell } from '@/components/notification-bell'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, LineChart, Line, BarChart, Bar, Legend
@@ -285,6 +286,17 @@ export default function Home() {
             <Menu className="h-5 w-5" />
           </Button>
           <span className="font-bold text-lg text-slate-900">DataSphere</span>
+          <div className="ml-auto">
+            <NotificationBell />
+          </div>
+        </div>
+
+        {/* Desktop top bar with notifications */}
+        <div className="hidden lg:flex sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-2 items-center justify-end">
+          <NotificationBell />
+          <a href="/settings" className="ml-2 p-2 rounded-lg hover:bg-slate-100 transition-colors">
+            <Settings className="h-5 w-5 text-slate-600" />
+          </a>
         </div>
 
         <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
@@ -1808,9 +1820,10 @@ function LandingPage({ onLogin, onCTA }: { onLogin: () => void; onCTA: () => voi
             <div>
               <h4 className="font-semibold text-white text-sm mb-4">Produit</h4>
               <ul className="space-y-2.5">
-                {['Fonctionnalités', 'Tarifs', 'Intégrations', 'Changelog'].map((l) => (
-                  <li key={l}><a href="#" className="text-sm text-slate-400 hover:text-white transition-colors">{l}</a></li>
-                ))}
+                <li><a href="/#fonctionnalites" className="text-sm text-slate-400 hover:text-white transition-colors">Fonctionnalités</a></li>
+                <li><a href="/pricing" className="text-sm text-slate-400 hover:text-white transition-colors">Tarifs</a></li>
+                <li><a href="/blog" className="text-sm text-slate-400 hover:text-white transition-colors">Blog</a></li>
+                <li><a href="/affiliate" className="text-sm text-slate-400 hover:text-white transition-colors">Affiliation</a></li>
               </ul>
             </div>
 

@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { BLOG_ARTICLES } from '@/lib/blog'
 
 // ============================================================
 // sitemap.xml généré dynamiquement par Next.js
@@ -20,6 +21,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
+      url: `${baseUrl}/blog`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
+    {
       url: `${baseUrl}/register`,
       lastModified: new Date(),
       changeFrequency: 'yearly',
@@ -30,6 +37,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(),
       changeFrequency: 'yearly',
       priority: 0.6,
+    },
+    {
+      url: `${baseUrl}/affiliate`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.5,
     },
     {
       url: `${baseUrl}/legal/terms`,
@@ -49,13 +62,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'yearly',
       priority: 0.3,
     },
-    {
-      url: `${baseUrl}/affiliate`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.5,
-    },
   ]
 
-  return staticPages
+  // Blog articles
+  const blogPages: MetadataRoute.Sitemap = BLOG_ARTICLES.map(article => ({
+    url: `${baseUrl}/blog/${article.slug}`,
+    lastModified: new Date(article.publishedAt),
+    changeFrequency: 'monthly',
+    priority: 0.6,
+  }))
+
+  return [...staticPages, ...blogPages]
 }
