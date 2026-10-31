@@ -30,6 +30,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { LinkedInAccountSwitcher } from '@/components/linkedin-account-switcher'
 import { NotificationBell } from '@/components/notification-bell'
+import { AgencyDashboard } from '@/components/agency-dashboard'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, LineChart, Line, BarChart, Bar, Legend
@@ -259,9 +260,9 @@ export default function Home() {
   // DASHBOARD
   // ============================================================
   const sidebarItems = [
-    { id: 'overview', label: 'Vue d\'ensemble', icon: LayoutDashboard },
+    { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'proposals', label: 'Posts', icon: FileText },
     { id: 'smart-poster', label: 'Smart Poster', icon: Sparkles },
-    { id: 'proposals', label: 'Propositions', icon: FileText },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'settings', label: 'Paramètres', icon: Settings },
   ]
@@ -308,7 +309,7 @@ export default function Home() {
           <AnimatePresence mode="wait">
             {activeTab === 'overview' && (
               <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-                <OverviewTab proposals={proposals} metrics={metrics} user={user} />
+                <AgencyDashboard user={user} />
               </motion.div>
             )}
             {activeTab === 'smart-poster' && (

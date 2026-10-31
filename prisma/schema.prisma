@@ -66,10 +66,35 @@ model User {
   // Notifications in-app
   notifications         Notification[]
 
+  // Agency clients (LinkedIn accounts managed by this user)
+  clients              Client[]
+
   @@index([email])
   @@index([plan])
   @@index([referralCode])
   @@index([referredById])
+}
+
+// ============================================================
+// CLIENTS - Agency managed LinkedIn accounts
+// ============================================================
+
+model Client {
+  id              String   @id @default(cuid())
+  userId          String   // agency owner
+  name            String   // ex: "Team DataSphere"
+  linkedinAccountId String? // linked LinkedInAccount (nullable)
+  monthlyGoal     Int      @default(20) // posts per month target
+  active          Boolean  @default(true)
+  color           String   @default("#10b981") // for UI
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  posts           PostProposal[] @relation("ClientPosts")
+
+  @@index([userId])
+  @@index([active])
 }
 
 // ============================================================
@@ -287,6 +312,7 @@ model SmartPosterSettings {
 model PostProposal {
   id             String   @id @default(cuid())
   userId          String?
+  clientId        String?  // agency client this post belongs to
   title          String
   content        String
   hashtags       String
@@ -298,15 +324,19 @@ model PostProposal {
   status         String   @default("pending") // pending | approved | published | rejected | failed
   engagementEst  String
   linkedinPostId String?
+  scheduledFor   DateTime? // planned publication time
   publishedAt    DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   user           User?    @relation("UserPosts", fields: [userId], references: [id], onDelete: SetNull)
+  client         Client?  @relation("ClientPosts", fields: [clientId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([clientId])
   @@index([status])
   @@index([createdAt])
+  @@index([scheduledFor])
 }
 
 model EngagementMetric {
