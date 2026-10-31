@@ -1,19 +1,11 @@
-import ZAI from 'z-ai-web-dev-sdk'
+import { generateChat } from '@/lib/ai-providers'
 
 // ============================================================
 // AI Service - Génération de posts LinkedIn via LLM
 //
-// Utilise z-ai-web-dev-sdk (backend only)
+// Supporte plusieurs providers via ai-providers.ts :
+//   Gemini, GLM, Groq, OpenRouter, fallback z-ai-web-dev-sdk
 // ============================================================
-
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null
-
-async function getZAI() {
-  if (!zaiInstance) {
-    zaiInstance = await ZAI.create()
-  }
-  return zaiInstance
-}
 
 export interface GenerateParams {
   topics: string
@@ -83,17 +75,14 @@ Format de réponse (JSON valide uniquement) :
 }
 
 export async function generateLinkedInPosts(params: GenerateParams): Promise<GeneratedPost[]> {
-  const zai = await getZAI()
-
-  const completion = await zai.chat.completions.create({
-    messages: [
-      { role: 'assistant', content: SYSTEM_PROMPT },
-      { role: 'user', content: buildUserPrompt(params) },
-    ],
-    thinking: { type: 'disabled' },
+  const result = await generateChat({
+    system: SYSTEM_PROMPT,
+    user: buildUserPrompt(params),
+    temperature: 0.7,
+    maxTokens: 4000,
   })
 
-  const raw = completion.choices[0]?.message?.content
+  const raw = result.content
   if (!raw) {
     throw new Error('Réponse IA vide')
   }
@@ -133,21 +122,12 @@ export async function generateLinkedInPosts(params: GenerateParams): Promise<Gen
 // Amélioration d'un post existant (réécriture)
 // ============================================================
 export async function improvePost(content: string, instruction: string): Promise<string> {
-  const zai = await getZAI()
-
-  const completion = await zai.chat.completions.create({
-    messages: [
-      {
-        role: 'assistant',
-        content: `Tu es un expert en réécriture de posts LinkedIn. Améliore le post fourni selon l'instruction. Garde le ton authentique. Réponds uniquement avec le post amélioré, sans commentaire.`,
-      },
-      {
-        role: 'user',
-        content: `Post original :\n\n${content}\n\nInstruction : ${instruction}`,
-      },
-    ],
-    thinking: { type: 'disabled' },
+  const result = await generateChat({
+    system: `Tu es un expert en réécriture de posts LinkedIn. Améliore le post fourni selon l'instruction. Garde le ton authentique. Réponds uniquement avec le post amélioré, sans commentaire.`,
+    user: `Post original :\n\n${content}\n\nInstruction : ${instruction}`,
+    temperature: 0.7,
+    maxTokens: 2000,
   })
 
-  return completion.choices[0]?.message?.content || content
+  return result.content || content
 }

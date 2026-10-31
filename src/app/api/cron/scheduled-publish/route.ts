@@ -3,6 +3,7 @@ import { decryptLinkedInToken } from '@/lib/linkedin-token-crypto'
 import { db } from '@/lib/db'
 import { logger } from '@/lib/logger'
 import { publishPostToLinkedIn } from '@/lib/linkedin-publisher'
+import { verifyCronAuth, getCronSecret } from '@/lib/cron-secret'
 
 // ============================================================
 // GET /api/cron/scheduled-publish
@@ -14,7 +15,7 @@ import { publishPostToLinkedIn } from '@/lib/linkedin-publisher'
 //   5. Et qu'il existe des proposals 'approved' non publiées
 //   6. Publie la meilleure proposal (highest qualityScore) sur LinkedIn
 //
-// ⚠️ Protégé par CRON_SECRET
+// ⚠️ Protégé par CRON_SECRET (ou dérivé de JWT_SECRET automatiquement)
 //
 // Render cron config :
 //   Schedule: "0,30 * * * *" (toutes les 30 min)
@@ -22,14 +23,14 @@ import { publishPostToLinkedIn } from '@/lib/linkedin-publisher'
 // ============================================================
 
 export async function GET(request: Request) {
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret) {
-    logger.error({ route: 'cron/scheduled-publish' }, 'CRON_SECRET not configured')
-    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
+  const secret = getCronSecret()
+  if (!secret) {
+    logger.error({ route: 'cron/scheduled-publish' }, 'No JWT_SECRET or CRON_SECRET configured')
+    return NextResponse.json({ error: 'Server not configured' }, { status: 500 })
   }
 
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  if (!verifyCronAuth(authHeader)) {
     logger.warn({ route: 'cron/scheduled-publish' }, 'Unauthorized cron access')
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

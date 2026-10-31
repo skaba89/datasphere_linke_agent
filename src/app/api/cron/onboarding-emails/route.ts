@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { logger } from '@/lib/logger'
 import { sendTrialExpiringEmail, sendWelcomeEmail } from '@/lib/email'
+import { verifyCronAuth, getCronSecret } from '@/lib/cron-secret'
 
 // ============================================================
 // GET /api/cron/onboarding-emails
@@ -10,21 +11,21 @@ import { sendTrialExpiringEmail, sendWelcomeEmail } from '@/lib/email'
 //   - Email J+11 : trial expire dans 3 jours (Pro 14j)
 //   - Email J+13 : trial expire demain (dernier rappel)
 //
-// ⚠️ Protégé par CRON_SECRET
+// ⚠️ Protégé par CRON_SECRET (ou dérivé de JWT_SECRET automatiquement)
 //
 // Render cron config :
 //   Schedule: "0 9 * * *" (tous les jours à 9h UTC)
 // ============================================================
 
 export async function GET(request: Request) {
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret) {
-    logger.error({ route: 'cron/onboarding-emails' }, 'CRON_SECRET not configured')
-    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
+  const secret = getCronSecret()
+  if (!secret) {
+    logger.error({ route: 'cron/onboarding-emails' }, 'No JWT_SECRET or CRON_SECRET configured')
+    return NextResponse.json({ error: 'Server not configured' }, { status: 500 })
   }
 
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  if (!verifyCronAuth(authHeader)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

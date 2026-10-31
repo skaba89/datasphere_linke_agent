@@ -12,7 +12,7 @@ import type { NextRequest } from 'next/server'
 // Routes protégées : /onboarding, /dashboard, etc.
 // ============================================================
 
-const SECRET = process.env.DATASPHERE_AUTH_SECRET || 'dev-insecure-secret-change-me'
+const SECRET = process.env.JWT_SECRET || process.env.DATASPHERE_AUTH_SECRET || 'dev-insecure-secret-change-me'
 
 // Web Crypto API : HMAC-SHA256 en hex
 async function sign(payload: string): Promise<string> {

@@ -3,8 +3,8 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 const MAX_AGE_MS = 10 * 60 * 1000
 
 function secret(): string {
-  const value = process.env.DATASPHERE_AUTH_SECRET
-  if (!value || value.length < 32) throw new Error('DATASPHERE_AUTH_SECRET must be at least 32 characters')
+  const value = process.env.JWT_SECRET || process.env.DATASPHERE_AUTH_SECRET
+  if (!value || value.length < 32) throw new Error('JWT_SECRET must be at least 32 characters')
   return value
 }
 

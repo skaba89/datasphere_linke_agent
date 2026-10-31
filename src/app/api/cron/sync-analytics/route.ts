@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { syncEngagementMetrics } from '@/lib/linkedin'
 import { logger } from '@/lib/logger'
+import { verifyCronAuth, getCronSecret } from '@/lib/cron-secret'
 
 // ============================================================
 // GET /api/cron/sync-analytics
 // Cron job Render (toutes les heures) pour sync analytics
 // de tous les utilisateurs ayant un compte LinkedIn actif.
 //
-// ⚠️ Protégé par CRON_SECRET (header Authorization: Bearer XXX)
+// ⚠️ Protégé par CRON_SECRET (ou dérivé de JWT_SECRET automatiquement)
 //
 // Render cron config :
 //   Schedule: "0 * * * *" (toutes les heures)
@@ -16,17 +17,17 @@ import { logger } from '@/lib/logger'
 //   Headers: Authorization: Bearer ${CRON_SECRET}
 // ============================================================
 export async function GET(request: Request) {
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret) {
-    logger.error({ route: 'cron/sync-analytics' }, 'CRON_SECRET not configured')
+  const secret = getCronSecret()
+  if (!secret) {
+    logger.error({ route: 'cron/sync-analytics' }, 'No JWT_SECRET or CRON_SECRET configured')
     return NextResponse.json(
-      { error: 'CRON_SECRET not configured' },
+      { error: 'Server not configured (JWT_SECRET required)' },
       { status: 500 }
     )
   }
 
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  if (!verifyCronAuth(authHeader)) {
     logger.warn({ route: 'cron/sync-analytics', authHeader: authHeader?.substring(0, 20) }, 'Unauthorized cron access')
     return NextResponse.json(
       { error: 'Unauthorized' },

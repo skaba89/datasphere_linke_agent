@@ -3,8 +3,10 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 30
 function secret(): string {
-  const value = process.env.DATASPHERE_AUTH_SECRET
-  if (!value || value.length < 32) throw new Error('DATASPHERE_AUTH_SECRET must be at least 32 characters')
+  // JWT_SECRET est la variable canonique (alignée avec les conventions Render)
+  // Fallback DATASPHERE_AUTH_SECRET pour rétro-compatibilité
+  const value = process.env.JWT_SECRET || process.env.DATASPHERE_AUTH_SECRET
+  if (!value || value.length < 32) throw new Error('JWT_SECRET must be at least 32 characters')
   return value
 }
 function sign(payload: string): Buffer {

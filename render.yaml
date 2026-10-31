@@ -26,6 +26,7 @@ services:
     autoDeploy: true
 
     envVars:
+      # ─── App ───
       - key: NODE_ENV
         value: production
       - key: PORT
@@ -33,38 +34,65 @@ services:
       - key: HOSTNAME
         value: "0.0.0.0"
 
-      # PostgreSQL (auto-injecté depuis la DB ci-dessous)
+      # ─── Database ───
       - key: DATABASE_URL
         fromDatabase:
           name: datasphere-db
           property: connectionString
 
-      # Auth (auto-généré)
-      - key: DATASPHERE_AUTH_SECRET
+      # ─── Auth ───
+      # JWT_SECRET : secret pour signer les cookies de session (32+ chars)
+      # CRON_SECRET : auto-dérivé de JWT_SECRET si non défini explicitement
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CRON_SECRET
         generateValue: true
 
-      # URL publique de l'app
-      # ⚠️ Render ne permet pas de self-référence avec fromService.hosturl
-      # Solution : Render expose automatiquement RENDER_EXTERNAL_URL
-      # Le code utilise : NEXT_PUBLIC_APP_URL || RENDER_EXTERNAL_URL || fallback
-      # Donc pas besoin de définir cette variable manuellement.
-      # (Laissez vide, le code s'adapte automatiquement)
+      # ─── App URL (auto-détectée via RENDER_EXTERNAL_URL) ───
+      # NEXT_PUBLIC_APP_URL : optionnel, le code utilise RENDER_EXTERNAL_URL en fallback
       - key: NEXT_PUBLIC_APP_URL
         sync: false
 
-      # AES-256-GCM key (base64 of 32 random bytes; preserve across deploys)
-      - key: LINKEDIN_TOKEN_ENCRYPTION_KEY
+      # ─── AI Providers (au moins un requis pour la génération de posts) ───
+      # Priorité : GEMINI > GLM > GROQ > OPENROUTER > z-ai-sdk (fallback)
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GLM_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
         sync: false
 
-      # LinkedIn OAuth (à définir manuellement dans Render dashboard)
+      # ─── LinkedIn OAuth ───
       - key: LINKEDIN_CLIENT_ID
         sync: false
       - key: LINKEDIN_CLIENT_SECRET
         sync: false
       - key: LINKEDIN_REDIRECT_URI
         sync: false
+      - key: LINKEDIN_WEBHOOK_SECRET
+        sync: false
 
-      # Stripe (à définir manuellement)
+      # ─── Email (Resend) ───
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+
+      # ─── Notifications Telegram ───
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+
+      # ─── Notifications WhatsApp (CallMeBot) ───
+      - key: WHATSAPP_CALLMEBOT_KEY
+        sync: false
+      - key: WHATSAPP_PHONE
+        sync: false
+
+      # ─── Stripe (optionnel) ───
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
@@ -74,23 +102,13 @@ services:
       - key: STRIPE_PRICE_BUSINESS_MONTHLY
         sync: false
 
-      # Cron secret (pour protéger /api/cron/* endpoints appelés par cron-job.org)
-      - key: CRON_SECRET
-        generateValue: true
-
-      # Email (Resend) - optionnel
-      - key: RESEND_API_KEY
-        sync: false
-      - key: FROM_EMAIL
-        value: "DataSphere <noreply@datasphere.app>"
-
-      # Sentry - optionnel
+      # ─── Sentry (optionnel) ───
       - key: SENTRY_DSN
         sync: false
       - key: NEXT_PUBLIC_SENTRY_DSN
         sync: false
 
-      # Logs
+      # ─── Logs ───
       - key: LOG_LEVEL
         value: info
 
@@ -117,8 +135,6 @@ databases:
 #      - https://VOTRE-APP.onrender.com/api/cron/onboarding-emails
 #      - https://VOTRE-APP.onrender.com/api/cron/payouts
 #   3. Headers : Authorization: Bearer ${CRON_SECRET}
+#      (ou Bearer <JWT_SECRET dérivé> si CRON_SECRET non défini)
 #   4. Schedule : voir docs/DEPLOYMENT.md
-#
-# Option 2 : GitHub Actions (gratuit, intégré au repo)
-#   Voir .github/workflows/cron.yml (à créer)
 # ============================================================

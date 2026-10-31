@@ -9,7 +9,7 @@
 
 import { getAppUrl } from '@/lib/app-url'
 
-const FROM_EMAIL = process.env.FROM_EMAIL || 'DataSphere <noreply@datasphere.app>'
+const FROM_EMAIL = process.env.EMAIL_FROM || process.env.FROM_EMAIL || 'DataSphere <noreply@datasphere.app>'
 
 // Récupère l'URL de l'app dynamiquement (gère RENDER_EXTERNAL_URL automatiquement)
 function getAppUrlForEmail(): string {
