@@ -13,7 +13,7 @@ test.describe('Public pages', () => {
   test('pricing page loads with 3 plans', async ({ page }) => {
     await page.goto('/pricing')
     await expect(page.locator('text=Free')).toBeVisible()
-    await expect(page.locator('text=Pro')).toBeVisible()
+    await expect(page.getByText('Pro', { exact: true }).first()).toBeVisible()
     await expect(page.locator('text=Business')).toBeVisible()
   })
 
@@ -51,7 +51,7 @@ test.describe('Health check', () => {
     expect(res.status()).toBe(200)
     const data = await res.json()
     expect(data.status).toBe('ok')
-    expect(data.database).toBe('ok')
+    expect(data.database?.status).toBe('ok')
   })
 })
 
