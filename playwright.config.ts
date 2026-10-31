@@ -49,6 +49,8 @@ export default defineConfig({
           LINKEDIN_TOKEN_ENCRYPTION_KEY: process.env.LINKEDIN_TOKEN_ENCRYPTION_KEY || '',
           NODE_ENV: 'production',
           PORT: '10000',
+          CI: process.env.CI || '',
+          DATASPHERE_E2E: process.env.CI === 'true' ? 'true' : '',
         },
       },
 })
