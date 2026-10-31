@@ -105,7 +105,7 @@ test.describe('UI Auth flow', () => {
     await page.goto('/register')
 
     // Vérifier que la page charge
-    await expect(page.locator('h2')).toContainText('Créer un compte')
+    await expect(page.getByText('Créer un compte', { exact: true })).toBeVisible()
 
     // Remplir le formulaire
     await page.fill('[id="name"]', 'Playwright User')
@@ -122,6 +122,6 @@ test.describe('UI Auth flow', () => {
 
   test('login page works', async ({ page }) => {
     await page.goto('/login')
-    await expect(page.locator('h2')).toContainText('Connexion')
+    await expect(page.getByText('Connexion', { exact: true })).toBeVisible()
   })
 })
