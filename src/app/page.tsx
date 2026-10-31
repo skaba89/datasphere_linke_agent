@@ -108,6 +108,8 @@ export default function Home() {
   const [proposalFilter, setProposalFilter] = useState('all')
   const [user, setUser] = useState<CurrentUser | null>(null)
   const [authChecked, setAuthChecked] = useState(false)
+  const [linkedinConnected, setLinkedinConnected] = useState(false)
+  const [linkedinName, setLinkedinName] = useState<string | null>(null)
 
   // ============================================================
   // FETCH FUNCTIONS
@@ -124,6 +126,19 @@ export default function Home() {
         if (cancelled) return
         if (d.success && d.data) {
           setUser(d.data)
+          // Vérifier le statut LinkedIn en parallèle
+          fetch('/api/linkedin')
+            .then(r => r.json())
+            .then(lk => {
+              if (lk.success && lk.data && lk.data.length > 0) {
+                const active = lk.data.find((a: any) => a.status === 'active')
+                if (active) {
+                  setLinkedinConnected(true)
+                  setLinkedinName(active.displayName)
+                }
+              }
+            })
+            .catch(() => {})
           // Charger les données du dashboard en parallèle
           Promise.all([
             fetch('/api/settings').then(r => r.json()).catch(() => ({ success: false })),
@@ -350,26 +365,41 @@ export default function Home() {
           </Button>
           <span className="font-bold text-lg text-slate-900">LinkedInPost</span>
           <div className="ml-auto flex items-center gap-2">
-            <a
-              href="/connect/linkedin"
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#0A66C2] text-white text-xs font-medium"
-            >
-              <Globe className="h-3 w-3" />
-              LinkedIn
-            </a>
+            {linkedinConnected ? (
+              <div className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200">
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="text-xs text-emerald-700 font-medium">Connecté</span>
+              </div>
+            ) : (
+              <a
+                href="/connect/linkedin"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-[#0A66C2] text-white text-xs font-medium"
+              >
+                <Globe className="h-3 w-3" />
+                LinkedIn
+              </a>
+            )}
             <NotificationBell />
           </div>
         </div>
 
         {/* Desktop top bar with notifications */}
         <div className="hidden lg:flex sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-2 items-center justify-between">
-          <a
-            href="/connect/linkedin"
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0A66C2] text-white text-sm font-medium hover:bg-[#0A66C2]/90 transition-colors"
-          >
-            <Globe className="h-4 w-4" />
-            Connecter LinkedIn
-          </a>
+          {linkedinConnected ? (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-sm">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-emerald-700 font-medium">{linkedinName}</span>
+              <span className="text-emerald-500 text-xs">· LinkedIn connecté</span>
+            </div>
+          ) : (
+            <a
+              href="/connect/linkedin"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0A66C2] text-white text-sm font-medium hover:bg-[#0A66C2]/90 transition-colors"
+            >
+              <Globe className="h-4 w-4" />
+              Connecter LinkedIn
+            </a>
+          )}
           <div className="flex items-center gap-2">
             <NotificationBell />
             <a href="/settings" className="p-2 rounded-lg hover:bg-slate-100 transition-colors">

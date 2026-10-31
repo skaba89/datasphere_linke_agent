@@ -41,31 +41,43 @@ export function getActiveProvider(): string | null {
 // ============================================================
 async function callGemini(params: ChatParams): Promise<ChatResult> {
   const apiKey = process.env.GEMINI_API_KEY!
-  // Model configurable via env var, defaults to gemini-2.0-flash
-  // Available models: gemini-2.0-flash, gemini-1.5-flash, gemini-1.5-flash-latest
-  const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash'
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: params.system }] },
-        contents: [{ role: 'user', parts: [{ text: params.user }] }],
-        generationConfig: {
-          temperature: params.temperature ?? 0.7,
-          maxOutputTokens: params.maxTokens ?? 2000,
-        },
-      }),
+  // Liste des modèles à essayer dans l'ordre (au cas où l'un est déprécié)
+  const models = [
+    process.env.GEMINI_MODEL,
+    'gemini-1.5-flash',
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-pro',
+    'gemini-2.0-flash',
+  ].filter(Boolean) as string[]
+
+  let lastError = ''
+  for (const model of models) {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: params.system }] },
+          contents: [{ role: 'user', parts: [{ text: params.user }] }],
+          generationConfig: {
+            temperature: params.temperature ?? 0.7,
+            maxOutputTokens: params.maxTokens ?? 2000,
+          },
+        }),
+      }
+    )
+    if (res.ok) {
+      const data = await res.json()
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+      return { content, provider: 'gemini' }
     }
-  )
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Gemini API error ${res.status}: ${err}`)
+    lastError = `${res.status}: ${await res.text()}`
+    // Si c'est une 404 (model not found), essayer le suivant
+    // Si c'est une 403/429 (quota/auth), ne pas essayer les autres
+    if (res.status !== 404) break
   }
-  const data = await res.json()
-  const content = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
-  return { content, provider: 'gemini' }
+  throw new Error(`Gemini API error: ${lastError}`)
 }
 
 // ============================================================
