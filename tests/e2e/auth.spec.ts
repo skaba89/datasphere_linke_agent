@@ -4,14 +4,15 @@ import { test, expect } from '@playwright/test'
 // Tests E2E - Authentification
 // ============================================================
 
-const TEST_USER = {
-  email: `test-e2e-${Date.now()}@datasphere.io`,
+const testUser = () => ({
+  email: `test-e2e-${crypto.randomUUID()}@datasphere.io`,
   password: 'Password123!',
   name: 'E2E Test User',
-}
+})
 
 test.describe('Authentication', () => {
   test('register → me → logout flow', async ({ page, request }) => {
+    const TEST_USER = testUser()
     // 1. Register via API (plus fiable que via UI)
     const regRes = await request.post('/api/auth/register', {
       data: TEST_USER,
@@ -46,6 +47,7 @@ test.describe('Authentication', () => {
   })
 
   test('login with wrong password returns 401', async ({ request }) => {
+    const TEST_USER = testUser()
     // D'abord register
     await request.post('/api/auth/register', { data: TEST_USER })
 
@@ -60,6 +62,9 @@ test.describe('Authentication', () => {
   })
 
   test('login with correct password succeeds', async ({ request }) => {
+    const TEST_USER = testUser()
+    const registration = await request.post('/api/auth/register', { data: TEST_USER })
+    expect(registration.status()).toBe(201)
     const res = await request.post('/api/auth/login', {
       data: { email: TEST_USER.email, password: TEST_USER.password },
     })
