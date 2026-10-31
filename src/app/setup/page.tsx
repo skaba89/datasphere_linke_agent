@@ -17,6 +17,10 @@ interface HealthData {
   uptime: string
 }
 
+function StatusIcon({ ok }: { ok: boolean }) {
+  return ok ? <Check className="h-4 w-4 text-emerald-600" /> : <X className="h-4 w-4 text-red-500" />
+}
+
 export default function SetupPage() {
   const [health, setHealth] = useState<HealthData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -42,10 +46,6 @@ export default function SetupPage() {
     navigator.clipboard.writeText(text)
     toast.success('Copié')
   }
-
-  const StatusIcon = ({ ok }: { ok: boolean }) => (
-    ok ? <Check className="h-4 w-4 text-emerald-600" /> : <X className="h-4 w-4 text-red-500" />
-  )
 
   return (
     <div className="min-h-screen bg-slate-50">
