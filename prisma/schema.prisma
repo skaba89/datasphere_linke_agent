@@ -48,8 +48,31 @@ model User {
   sentInvitations  TeamInvitation[] @relation("InvitedBy")
   ownedTeams       Team[]           @relation("TeamOwner")
 
+  // API publique (Plan Business)
+  apiKeys          ApiKey[]
+
   @@index([email])
   @@index([plan])
+}
+
+// ============================================================
+// API KEYS - Accès programmatique (Plan Business)
+// ============================================================
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String    // label donné par l'utilisateur
+  keyPrefix   String    // 8 premiers caractères (pour affichage)
+  hashedKey   String    @unique // hash bcrypt de la clé complète
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([hashedKey])
 }
 
 // ============================================================

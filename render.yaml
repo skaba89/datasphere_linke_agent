@@ -78,3 +78,7 @@ crons:
   - name: scheduled-publish
     schedule: "0,30 * * * *"
     command: "curl -fsSL -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:10000/api/cron/scheduled-publish || true"
+  # Emails d'onboarding (quotidien à 9h UTC)
+  - name: onboarding-emails
+    schedule: "0 9 * * *"
+    command: "curl -fsSL -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:10000/api/cron/onboarding-emails || true"
