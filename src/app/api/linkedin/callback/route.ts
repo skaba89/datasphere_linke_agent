@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server'
+import { getCurrentUserId } from '@/lib/auth'
+import { verifyLinkedInState } from '@/lib/linkedin-oauth-state'
+import { encryptLinkedInToken } from '@/lib/linkedin-token-crypto'
 import { db } from '@/lib/db'
 import { getAppUrl } from '@/lib/app-url'
 
@@ -35,20 +38,9 @@ export async function GET(request: Request) {
     )
   }
 
-  // Décoder le state
-  let stateData: { userId: string; ts: number }
-  try {
-    stateData = JSON.parse(Buffer.from(state, 'base64url').toString())
-  } catch {
-    return NextResponse.redirect(
-      new URL('/onboarding?error=invalid_state', appUrl)
-    )
-  }
-
-  if (Date.now() - stateData.ts > 10 * 60 * 1000) {
-    return NextResponse.redirect(
-      new URL('/onboarding?error=expired_state', appUrl)
-    )
+  const userId = await getCurrentUserId()
+  if (!userId || !verifyLinkedInState(state, userId)) {
+    return NextResponse.redirect(new URL('/onboarding?error=invalid_state', appUrl))
   }
 
   const clientId = process.env.LINKEDIN_CLIENT_ID!
@@ -86,7 +78,6 @@ export async function GET(request: Request) {
     const tokenData = await tokenRes.json()
     const accessToken = tokenData.access_token
     const tokenExpiresAt = new Date(Date.now() + tokenData.expires_in * 1000)
-    const userId = stateData.userId
 
     // Récupérer le profil LinkedIn
     const profileRes = await fetch('https://api.linkedin.com/v2/me', {
@@ -121,7 +112,7 @@ export async function GET(request: Request) {
       update: {
         displayName,
         email,
-        accessToken,
+        accessToken: encryptLinkedInToken(accessToken),
         tokenExpiresAt,
         scopes: SCOPES,
         status: 'active',
@@ -132,7 +123,7 @@ export async function GET(request: Request) {
         organizationId,
         displayName,
         email,
-        accessToken,
+        accessToken: encryptLinkedInToken(accessToken),
         tokenExpiresAt,
         scopes: SCOPES,
         status: 'active',
