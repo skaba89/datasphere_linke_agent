@@ -32,7 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { LinkedInAccountSwitcher } from '@/components/linkedin-account-switcher'
 import { NotificationBell } from '@/components/notification-bell'
 import { AgencyDashboard } from '@/components/agency-dashboard'
-import { CalendarTab, TemplatesTab, LogsTab, ReportsTab, AgentIATab, ProfileTab, ComingSoonTab } from '@/components/dashboard-tabs'
+import { CalendarTab, TemplatesTab, LogsTab, ReportsTab, AgentIATab, ProfileTab, ComingSoonTab, ProspectingTab, PipelineTab, CrmTab, NetworkingTab, MessagesTab } from '@/components/dashboard-tabs'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, LineChart, Line, BarChart, Bar, Legend
@@ -411,9 +411,34 @@ export default function Home() {
               </motion.div>
             )}
             {/* Coming soon tabs */}
-            {['messages', 'prospecting', 'pipeline', 'crm', 'networking', 'mission-scout'].includes(activeTab) && (
+            {['mission-scout'].includes(activeTab) && (
               <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-                <ComingSoonTab title={activeTab} description="Cette fonctionnalité sera disponible prochainement." icon={Sparkles} />
+                <ComingSoonTab title="Mission Scout" description="Identifiez les opportunités et tendances." icon={Search} />
+              </motion.div>
+            )}
+            {activeTab === 'messages' && (
+              <motion.div key="messages" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <MessagesTab />
+              </motion.div>
+            )}
+            {activeTab === 'prospecting' && (
+              <motion.div key="prospecting" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <ProspectingTab />
+              </motion.div>
+            )}
+            {activeTab === 'pipeline' && (
+              <motion.div key="pipeline" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <PipelineTab />
+              </motion.div>
+            )}
+            {activeTab === 'crm' && (
+              <motion.div key="crm" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <CrmTab />
+              </motion.div>
+            )}
+            {activeTab === 'networking' && (
+              <motion.div key="networking" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <NetworkingTab />
               </motion.div>
             )}
           </AnimatePresence>

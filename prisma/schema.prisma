@@ -69,6 +69,11 @@ model User {
   // Agency clients (LinkedIn accounts managed by this user)
   clients              Client[]
 
+  // CRM & Prospecting
+  prospects            Prospect[]
+  crmSequences         CrmSequence[]
+  crmMessages          CrmMessage[]
+
   @@index([email])
   @@index([plan])
   @@index([referralCode])
@@ -95,6 +100,71 @@ model Client {
 
   @@index([userId])
   @@index([active])
+}
+
+// ============================================================
+// PROSPECTS & CRM - Réseau & Prospection
+// ============================================================
+
+model Prospect {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  linkedinUrl String?
+  email       String?
+  company     String?
+  title       String?   // job title
+  stage       String   @default("new") // new | contacted | replied | meeting | won | lost
+  notes       String?
+  tags        String?  // comma-separated
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    CrmMessage[]
+
+  @@index([userId])
+  @@index([stage])
+  @@index([company])
+}
+
+model CrmSequence {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  steps       Json     // [{day:1, subject:"Hello", body:"..."}, ...]
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    CrmMessage[]
+
+  @@index([userId])
+  @@index([active])
+}
+
+model CrmMessage {
+  id          String   @id @default(cuid())
+  userId      String
+  prospectId  String
+  sequenceId  String?
+  stepIndex   Int?
+  subject     String
+  body        String
+  status      String   @default("draft") // draft | sent | replied | bounced
+  sentAt      DateTime?
+  repliedAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prospect    Prospect     @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  sequence    CrmSequence? @relation(fields: [sequenceId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([prospectId])
+  @@index([status])
 }
 
 // ============================================================

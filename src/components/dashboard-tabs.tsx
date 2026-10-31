@@ -13,7 +13,8 @@ import { toast } from 'sonner'
 import {
   Calendar, FileCode, ScrollText, FileBarChart, Bot, User,
   Target, Filter, Mail, Network, Search, Plus, Send, Loader2,
-  ChevronLeft, ChevronRight, Check, X, Sparkles, TrendingUp
+  ChevronLeft, ChevronRight, Check, X, Sparkles, TrendingUp,
+  MessageSquare
 } from 'lucide-react'
 import { POST_TEMPLATES, getIndustries } from '@/lib/templates'
 
@@ -493,7 +494,7 @@ export function ProfileTab() {
 }
 
 // ============================================================
-// GENERIC COMING SOON TAB (for Prospecting, Pipeline, CRM, etc.)
+// GENERIC COMING SOON TAB (for Mission Scout only now)
 // ============================================================
 export function ComingSoonTab({ title, description, icon: Icon }: { title: string; description: string; icon: any }) {
   return (
@@ -515,6 +516,397 @@ export function ComingSoonTab({ title, description, icon: Icon }: { title: strin
           <Badge variant="secondary" className="bg-amber-100 text-amber-700">Bientôt disponible</Badge>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+// ============================================================
+// PROSPECTING TAB - Gérer et ajouter des prospects
+// ============================================================
+export function ProspectingTab() {
+  const [prospects, setProspects] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAdd, setShowAdd] = useState(false)
+  const [form, setForm] = useState({ name: '', company: '', title: '', email: '', linkedinUrl: '', notes: '' })
+
+  const load = () => {
+    fetch('/api/prospects').then(r => r.json()).then(d => { if (d.success) setProspects(d.data) }).finally(() => setLoading(false))
+  }
+  useEffect(() => { load() }, [])
+
+  const handleAdd = async () => {
+    if (!form.name.trim()) { toast.error('Nom requis'); return }
+    try {
+      const res = await fetch('/api/prospects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+      const d = await res.json()
+      if (!d.success) throw new Error(d.error)
+      toast.success('Prospect ajouté !')
+      setForm({ name: '', company: '', title: '', email: '', linkedinUrl: '', notes: '' })
+      setShowAdd(false)
+      load()
+    } catch (e: any) { toast.error(e.message) }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Supprimer ce prospect ?')) return
+    try {
+      await fetch(`/api/prospects/${id}`, { method: 'DELETE' })
+      toast.success('Supprimé')
+      load()
+    } catch (e: any) { toast.error(e.message) }
+  }
+
+  const stageColors: Record<string, string> = {
+    new: 'bg-slate-100 text-slate-600',
+    contacted: 'bg-blue-100 text-blue-600',
+    replied: 'bg-amber-100 text-amber-600',
+    meeting: 'bg-purple-100 text-purple-600',
+    won: 'bg-emerald-100 text-emerald-600',
+    lost: 'bg-red-100 text-red-600',
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
+            <Target className="h-7 w-7 text-emerald-600" />
+            Prospecting
+          </h1>
+          <p className="text-slate-500 mt-1">Trouvez et gérez vos prospects LinkedIn</p>
+        </div>
+        <Button onClick={() => setShowAdd(!showAdd)}><Plus className="h-4 w-4 mr-2" />Ajouter</Button>
+      </div>
+
+      {showAdd && (
+        <Card><CardContent className="p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Nom *</Label><Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Jean Dupont" /></div>
+            <div><Label>Entreprise</Label><Input value={form.company} onChange={e => setForm({...form, company: e.target.value})} placeholder="TechCorp" /></div>
+            <div><Label>Titre</Label><Input value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="CTO" /></div>
+            <div><Label>Email</Label><Input value={form.email} onChange={e => setForm({...form, email: e.target.value})} placeholder="jean@techcorp.com" /></div>
+          </div>
+          <div><Label>URL LinkedIn</Label><Input value={form.linkedinUrl} onChange={e => setForm({...form, linkedinUrl: e.target.value})} placeholder="https://linkedin.com/in/..." /></div>
+          <div><Label>Notes</Label><Textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} rows={2} /></div>
+          <div className="flex gap-2"><Button onClick={handleAdd}>Créer</Button><Button variant="outline" onClick={() => setShowAdd(false)}>Annuler</Button></div>
+        </CardContent></Card>
+      )}
+
+      <Card>
+        <CardContent className="p-0">
+          {loading ? <div className="p-4 space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div> :
+           prospects.length === 0 ? <div className="text-center py-12"><Target className="h-12 w-12 text-slate-300 mx-auto mb-3" /><p className="text-slate-500">Aucun prospect. Cliquez sur "Ajouter".</p></div> :
+           <div className="divide-y divide-slate-100">
+             {prospects.map(p => (
+               <div key={p.id} className="flex items-center gap-3 p-3 hover:bg-slate-50">
+                 <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-sm font-semibold text-slate-600 flex-shrink-0">
+                   {p.name.split(' ').map(w => w[0]).slice(0,2).join('')}
+                 </div>
+                 <div className="flex-1 min-w-0">
+                   <p className="text-sm font-medium text-slate-900">{p.name}</p>
+                   <p className="text-xs text-slate-500">{p.title ? `${p.title} · ` : ''}{p.company || 'Sans entreprise'}</p>
+                 </div>
+                 <Badge variant="outline" className={`text-xs capitalize ${stageColors[p.stage] || ''}`}>{p.stage}</Badge>
+                 <Button size="icon" variant="ghost" className="text-red-500 h-8 w-8" onClick={() => handleDelete(p.id)}><X className="h-4 w-4" /></Button>
+               </div>
+             ))}
+           </div>}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ============================================================
+// PIPELINE TAB - Vue funnel des prospects
+// ============================================================
+export function PipelineTab() {
+  const [prospects, setProspects] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/prospects').then(r => r.json()).then(d => { if (d.success) setProspects(d.data) }).finally(() => setLoading(false))
+  }, [])
+
+  const stages = [
+    { id: 'new', label: 'Nouveau', color: 'bg-slate-100' },
+    { id: 'contacted', label: 'Contacté', color: 'bg-blue-50' },
+    { id: 'replied', label: 'A répondu', color: 'bg-amber-50' },
+    { id: 'meeting', label: 'Meeting', color: 'bg-purple-50' },
+    { id: 'won', label: 'Gagné', color: 'bg-emerald-50' },
+    { id: 'lost', label: 'Perdu', color: 'bg-red-50' },
+  ]
+
+  const handleDrop = async (stage: string) => {
+    if (!draggingId) return
+    try {
+      await fetch(`/api/prospects/${draggingId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stage }) })
+      setProspects(prev => prev.map(p => p.id === draggingId ? { ...p, stage } : p))
+      setDraggingId(null)
+      toast.success(`Prospect déplacé vers "${stage}"`)
+    } catch (e: any) { toast.error(e.message) }
+  }
+
+  if (loading) return <Skeleton className="h-96 w-full" />
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
+          <Filter className="h-7 w-7 text-emerald-600" />
+          Pipeline Prospects
+        </h1>
+        <p className="text-slate-500 mt-1">Glissez-déposez vos prospects dans le funnel</p>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 overflow-x-auto">
+        {stages.map(stage => {
+          const stageProspects = prospects.filter(p => p.stage === stage.id)
+          return (
+            <div
+              key={stage.id}
+              className={`${stage.color} rounded-lg p-3 min-h-[200px]`}
+              onDragOver={e => e.preventDefault()}
+              onDrop={() => handleDrop(stage.id)}
+            >
+              <p className="text-xs font-semibold text-slate-600 uppercase mb-2">{stage.label} ({stageProspects.length})</p>
+              <div className="space-y-2">
+                {stageProspects.map(p => (
+                  <div
+                    key={p.id}
+                    draggable
+                    onDragStart={() => setDraggingId(p.id)}
+                    className="bg-white rounded-md p-2 shadow-sm cursor-move hover:shadow-md transition-shadow"
+                  >
+                    <p className="text-xs font-medium text-slate-900 truncate">{p.name}</p>
+                    <p className="text-[10px] text-slate-500 truncate">{p.company || '—'}</p>
+                  </div>
+                ))}
+                {stageProspects.length === 0 && <p className="text-[10px] text-slate-400 text-center py-4">Vide</p>}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ============================================================
+// CRM SÉQUENCES TAB
+// ============================================================
+export function CrmTab() {
+  const [sequences, setSequences] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAdd, setShowAdd] = useState(false)
+  const [form, setForm] = useState({ name: '', description: '' })
+
+  const load = () => {
+    fetch('/api/sequences').then(r => r.json()).then(d => { if (d.success) setSequences(d.data) }).finally(() => setLoading(false))
+  }
+  useEffect(() => { load() }, [])
+
+  const handleAdd = async () => {
+    if (!form.name.trim()) { toast.error('Nom requis'); return }
+    try {
+      const res = await fetch('/api/sequences', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, steps: [{ day: 1, subject: 'Bonjour', body: 'Message de première contact...' }] }) })
+      const d = await res.json()
+      if (!d.success) throw new Error(d.error)
+      toast.success('Séquence créée !')
+      setForm({ name: '', description: '' })
+      setShowAdd(false)
+      load()
+    } catch (e: any) { toast.error(e.message) }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
+            <Mail className="h-7 w-7 text-emerald-600" />
+            CRM Séquences
+          </h1>
+          <p className="text-slate-500 mt-1">Automatisez vos séquences de messages</p>
+        </div>
+        <Button onClick={() => setShowAdd(!showAdd)}><Plus className="h-4 w-4 mr-2" />Nouvelle séquence</Button>
+      </div>
+
+      {showAdd && (
+        <Card><CardContent className="p-4 space-y-3">
+          <div><Label>Nom *</Label><Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Séquence de bienvenue" /></div>
+          <div><Label>Description</Label><Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={2} placeholder="Séquence pour nouveaux prospects..." /></div>
+          <div className="flex gap-2"><Button onClick={handleAdd}>Créer</Button><Button variant="outline" onClick={() => setShowAdd(false)}>Annuler</Button></div>
+        </CardContent></Card>
+      )}
+
+      {loading ? <Skeleton className="h-48 w-full" /> :
+       sequences.length === 0 ? <Card><CardContent className="py-12 text-center"><Mail className="h-12 w-12 text-slate-300 mx-auto mb-3" /><p className="text-slate-500">Aucune séquence. Créez-en une pour automatiser vos messages.</p></CardContent></Card> :
+       <div className="space-y-3">
+         {sequences.map(seq => (
+           <Card key={seq.id} className="border-slate-200">
+             <CardContent className="p-4">
+               <div className="flex items-center justify-between mb-2">
+                 <h4 className="font-semibold text-slate-900">{seq.name}</h4>
+                 <Badge variant={seq.active ? 'default' : 'outline'}>{seq.active ? 'Active' : 'Inactive'}</Badge>
+               </div>
+               {seq.description && <p className="text-sm text-slate-500 mb-2">{seq.description}</p>}
+               <p className="text-xs text-slate-400">{Array.isArray(seq.steps) ? `${seq.steps.length} étape(s)` : 'Aucune étape'}</p>
+             </CardContent>
+           </Card>
+         ))}
+       </div>}
+    </div>
+  )
+}
+
+// ============================================================
+// NETWORKING TAB
+// ============================================================
+export function NetworkingTab() {
+  const [prospects, setProspects] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/prospects').then(r => r.json()).then(d => { if (d.success) setProspects(d.data) }).finally(() => setLoading(false))
+  }, [])
+
+  const stats = {
+    total: prospects.length,
+    contacted: prospects.filter(p => p.stage !== 'new').length,
+    replied: prospects.filter(p => ['replied','meeting','won'].includes(p.stage)).length,
+    won: prospects.filter(p => p.stage === 'won').length,
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
+          <Network className="h-7 w-7 text-emerald-600" />
+          Networking
+        </h1>
+        <p className="text-slate-500 mt-1">Développez votre réseau LinkedIn</p>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card><CardContent className="p-4"><Network className="h-6 w-6 text-blue-500 mb-1" /><p className="text-2xl font-bold">{stats.total}</p><p className="text-xs text-slate-500">Contacts</p></CardContent></Card>
+        <Card><CardContent className="p-4"><Mail className="h-6 w-6 text-amber-500 mb-1" /><p className="text-2xl font-bold">{stats.contacted}</p><p className="text-xs text-slate-500">Contactés</p></CardContent></Card>
+        <Card><CardContent className="p-4"><MessageSquare className="h-6 w-6 text-purple-500 mb-1" /><p className="text-2xl font-bold">{stats.replied}</p><p className="text-xs text-slate-500">Ont répondu</p></CardContent></Card>
+        <Card><CardContent className="p-4"><Check className="h-6 w-6 text-emerald-500 mb-1" /><p className="text-2xl font-bold">{stats.won}</p><p className="text-xs text-slate-500">Conquis</p></CardContent></Card>
+      </div>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Votre réseau</CardTitle></CardHeader>
+        <CardContent>
+          {loading ? <Skeleton className="h-32 w-full" /> :
+           prospects.length === 0 ? <div className="text-center py-8"><Network className="h-10 w-10 text-slate-300 mx-auto mb-2" /><p className="text-sm text-slate-400">Aucun contact. Ajoutez des prospects depuis l'onglet Prospecting.</p></div> :
+           <div className="space-y-2">
+             {prospects.map(p => (
+               <div key={p.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50">
+                 <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-semibold text-slate-600">
+                   {p.name.split(' ').map(w => w[0]).slice(0,2).join('')}
+                 </div>
+                 <div className="flex-1"><p className="text-sm font-medium">{p.name}</p><p className="text-xs text-slate-500">{p.company || '—'}</p></div>
+                 <Badge variant="outline" className="text-xs capitalize">{p.stage}</Badge>
+               </div>
+             ))}
+           </div>}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ============================================================
+// MESSAGES TAB
+// ============================================================
+export function MessagesTab() {
+  const [prospects, setProspects] = useState<any[]>([])
+  const [messages, setMessages] = useState<any[]>([])
+  const [selectedProspect, setSelectedProspect] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [newMessage, setNewMessage] = useState({ subject: '', body: '' })
+
+  useEffect(() => {
+    fetch('/api/prospects').then(r => r.json()).then(d => { if (d.success) setProspects(d.data) }).finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    if (selectedProspect) {
+      fetch(`/api/crm-messages?prospectId=${selectedProspect}`).then(r => r.json()).then(d => { if (d.success) setMessages(d.data) })
+    }
+  }, [selectedProspect])
+
+  const handleSend = async () => {
+    if (!selectedProspect || !newMessage.subject || !newMessage.body) return
+    try {
+      const res = await fetch('/api/crm-messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prospectId: selectedProspect, subject: newMessage.subject, body: newMessage.body, status: 'sent' }),
+      })
+      const d = await res.json()
+      if (!d.success) throw new Error(d.error)
+      toast.success('Message envoyé !')
+      setNewMessage({ subject: '', body: '' })
+      setMessages(prev => [d.data, ...prev])
+    } catch (e: any) { toast.error(e.message) }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
+          <MessageSquare className="h-7 w-7 text-emerald-600" />
+          Messages
+        </h1>
+        <p className="text-slate-500 mt-1">Gérez vos conversations avec vos prospects</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Prospect list */}
+        <Card className="md:col-span-1">
+          <CardHeader><CardTitle className="text-sm">Prospects</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            {loading ? <Skeleton className="h-32" /> :
+             prospects.length === 0 ? <p className="text-sm text-slate-400 text-center py-4">Aucun prospect</p> :
+             <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
+               {prospects.map(p => (
+                 <button key={p.id} onClick={() => setSelectedProspect(p.id)} className={`w-full flex items-center gap-2 p-2 hover:bg-slate-50 ${selectedProspect === p.id ? 'bg-emerald-50' : ''}`}>
+                   <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-semibold">{p.name.split(' ').map(w => w[0]).slice(0,2).join('')}</div>
+                   <span className="text-sm truncate">{p.name}</span>
+                 </button>
+               ))}
+             </div>}
+          </CardContent>
+        </Card>
+
+        {/* Messages */}
+        <Card className="md:col-span-2">
+          <CardHeader><CardTitle className="text-sm">{selectedProspect ? 'Conversation' : 'Sélectionnez un prospect'}</CardTitle></CardHeader>
+          <CardContent>
+            {!selectedProspect ? <p className="text-sm text-slate-400 text-center py-8">Choisissez un prospect à gauche</p> :
+             <div className="space-y-3">
+               <div className="space-y-2 max-h-64 overflow-y-auto">
+                 {messages.length === 0 ? <p className="text-sm text-slate-400 text-center py-4">Aucun message</p> :
+                  messages.map(m => (
+                    <div key={m.id} className={`p-2 rounded-lg ${m.status === 'sent' ? 'bg-emerald-50 ml-8' : 'bg-slate-100 mr-8'}`}>
+                      <p className="text-xs font-semibold text-slate-700">{m.subject}</p>
+                      <p className="text-xs text-slate-600 mt-1">{m.body}</p>
+                      <p className="text-[10px] text-slate-400 mt-1">{m.sentAt ? new Date(m.sentAt).toLocaleString('fr-FR') : 'Brouillon'}</p>
+                    </div>
+                  ))}
+               </div>
+               <div className="space-y-2 border-t pt-3">
+                 <Input placeholder="Sujet" value={newMessage.subject} onChange={e => setNewMessage({...newMessage, subject: e.target.value})} />
+                 <Textarea placeholder="Message..." value={newMessage.body} onChange={e => setNewMessage({...newMessage, body: e.target.value})} rows={2} />
+                 <Button size="sm" onClick={handleSend} disabled={!newMessage.subject || !newMessage.body}><Send className="h-3 w-3 mr-1" />Envoyer</Button>
+               </div>
+             </div>}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
