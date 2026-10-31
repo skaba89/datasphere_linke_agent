@@ -12,7 +12,8 @@ import {
   LogOut, Bell, Mail, Trash2, Shield, Crown, Plus, Minus,
   Send, Globe, Play, ChevronDown, ExternalLink, Layers,
   Bot, BarChart as BarChartIcon, Calendar, UserCheck, Rocket, Heart,
-  MousePointer, Activity
+  MousePointer, Activity, User, Network, Search, FileCode, ScrollText,
+  FileBarChart, Filter, MessageSquare, Zap as ZapIcon
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -259,12 +260,49 @@ export default function Home() {
   // ============================================================
   // DASHBOARD
   // ============================================================
-  const sidebarItems = [
-    { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'proposals', label: 'Posts', icon: FileText },
-    { id: 'smart-poster', label: 'Smart Poster', icon: Sparkles },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'settings', label: 'Paramètres', icon: Settings },
+  const sidebarSections = [
+    {
+      title: null,
+      items: [
+        { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'proposals', label: 'Posts', icon: FileText },
+        { id: 'calendar', label: 'Calendrier', icon: Calendar },
+        { id: 'messages', label: 'Messages', icon: MessageSquare },
+        { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+      ],
+    },
+    {
+      title: 'Profil',
+      items: [
+        { id: 'profile', label: 'Optimisation profil', icon: User },
+      ],
+    },
+    {
+      title: 'Réseau & Prospection',
+      items: [
+        { id: 'prospecting', label: 'Prospecting', icon: Target },
+        { id: 'pipeline', label: 'Pipeline Prospects', icon: Filter },
+        { id: 'crm', label: 'CRM Séquences', icon: Mail },
+        { id: 'networking', label: 'Networking', icon: Network },
+      ],
+    },
+    {
+      title: 'Outils IA',
+      items: [
+        { id: 'agent-ia', label: 'Agent IA', icon: Bot },
+        { id: 'mission-scout', label: 'Mission Scout', icon: Search },
+        { id: 'templates-ia', label: 'Templates IA', icon: FileCode },
+        { id: 'smart-poster', label: 'Smart Poster', icon: Sparkles },
+      ],
+    },
+    {
+      title: 'Gestion',
+      items: [
+        { id: 'logs', label: 'Logs', icon: ScrollText },
+        { id: 'reports', label: 'Rapports', icon: FileBarChart },
+        { id: 'settings', label: 'Paramètres', icon: Settings },
+      ],
+    },
   ]
 
   const filteredProposals = proposalFilter === 'all' ? proposals : proposals.filter((p: Proposal) => p.status === proposalFilter)
@@ -272,15 +310,15 @@ export default function Home() {
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200 flex-col">
-        <DashboardSidebar items={sidebarItems} activeTab={activeTab} onNav={handleNavClick} onBack={() => window.location.href = '/login'} user={user} onLogout={handleLogout} />
+      <aside className="hidden lg:flex w-64 bg-white border-r border-slate-200 flex-col overflow-hidden">
+        <DashboardSidebar sections={sidebarSections} activeTab={activeTab} onNav={handleNavClick} onBack={() => window.location.href = '/login'} user={user} onLogout={handleLogout} />
       </aside>
 
       {/* Mobile Sidebar */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetContent side="left" className="w-72 p-0">
+        <SheetContent side="left" className="w-72 p-0 overflow-y-auto">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <DashboardSidebar items={sidebarItems} activeTab={activeTab} onNav={handleNavClick} onBack={() => window.location.href = '/login'} user={user} onLogout={handleLogout} />
+          <DashboardSidebar sections={sidebarSections} activeTab={activeTab} onNav={handleNavClick} onBack={() => window.location.href = '/login'} user={user} onLogout={handleLogout} />
         </SheetContent>
       </Sheet>
 
@@ -340,6 +378,15 @@ export default function Home() {
                 <SettingsTab user={user} />
               </motion.div>
             )}
+            {/* New tabs from old version */}
+            {(activeTab === 'calendar' || activeTab === 'messages' || activeTab === 'profile' ||
+              activeTab === 'prospecting' || activeTab === 'pipeline' || activeTab === 'crm' ||
+              activeTab === 'networking' || activeTab === 'agent-ia' || activeTab === 'mission-scout' ||
+              activeTab === 'templates-ia' || activeTab === 'logs' || activeTab === 'reports') && (
+              <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <PlaceholderTab tabId={activeTab} />
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
       </main>
@@ -348,17 +395,16 @@ export default function Home() {
 }
 
 // ============================================================
-// DASHBOARD SIDEBAR COMPONENT
+// DASHBOARD SIDEBAR COMPONENT (with sections)
 // ============================================================
-function DashboardSidebar({ items, activeTab, onNav, onBack, user, onLogout }: {
-  items: { id: string; label: string; icon: React.ComponentType<{ className?: string }> }[]
+function DashboardSidebar({ sections, activeTab, onNav, onBack, user, onLogout }: {
+  sections: { title: string | null; items: { id: string; label: string; icon: React.ComponentType<{ className?: string }> }[] }[]
   activeTab: string
   onNav: (tab: string) => void
   onBack: () => void
   user: CurrentUser | null
   onLogout: () => void
 }) {
-  // Initiales à partir du nom ou de l'email
   const displayName = user?.name || user?.email || 'Utilisateur'
   const initials = displayName
     .split(/[\s@.]+/)
@@ -369,41 +415,50 @@ function DashboardSidebar({ items, activeTab, onNav, onBack, user, onLogout }: {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-6 py-5 flex items-center gap-2 border-b border-slate-100">
+      <div className="px-6 py-5 flex items-center gap-2 border-b border-slate-100 flex-shrink-0">
         <div className="h-8 w-8 bg-emerald-600 rounded-lg flex items-center justify-center">
           <Sparkles className="h-4 w-4 text-white" />
         </div>
         <span className="font-bold text-lg text-slate-900">LinkedInPost</span>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {items.map((item) => {
-          const Icon = item.icon
-          const isActive = activeTab === item.id
-          return (
-            <button
-              key={item.id}
-              onClick={() => onNav(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
-                isActive
-                  ? 'bg-emerald-50 text-emerald-700'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-              }`}
-            >
-              <Icon className={`h-4.5 w-4.5 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`} />
-              {item.label}
-            </button>
-          )
-        })}
+      <nav className="flex-1 px-3 py-3 overflow-y-auto">
+        {sections.map((section, sIdx) => (
+          <div key={sIdx} className="mb-3">
+            {section.title && (
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-3 mb-1 mt-2">
+                {section.title}
+              </p>
+            )}
+            {section.items.map((item) => {
+              const Icon = item.icon
+              const isActive = activeTab === item.id
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => onNav(item.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
+                    isActive
+                      ? 'bg-emerald-50 text-emerald-700'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <Icon className={`h-4 w-4 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`} />
+                  {item.label}
+                </button>
+              )
+            })}
+          </div>
+        ))}
       </nav>
 
       {/* LinkedIn Account Switcher */}
-      <div className="px-3 pb-3 border-t border-slate-100 pt-3">
-        <p className="text-xs font-medium text-slate-400 uppercase mb-2 px-1">Compte LinkedIn</p>
+      <div className="px-3 pb-2 border-t border-slate-100 pt-2 flex-shrink-0">
+        <p className="text-[10px] font-medium text-slate-400 uppercase mb-1 px-1">Compte LinkedIn</p>
         <LinkedInAccountSwitcher />
       </div>
 
-      <div className="p-3 border-t border-slate-100 space-y-2">
+      <div className="p-2 border-t border-slate-100 space-y-1 flex-shrink-0">
         <a
           href="/team"
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all"
@@ -1111,6 +1166,56 @@ function AnalyticsTab({ metrics }: { metrics: Metric[] }) {
               </ResponsiveContainer>
             ) : <Skeleton className="h-full w-full" />}
           </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// ============================================================
+// PLACEHOLDER TAB (for new sections from old version)
+// ============================================================
+function PlaceholderTab({ tabId }: { tabId: string }) {
+  const tabInfo: Record<string, { title: string; description: string; icon: any }> = {
+    'calendar': { title: 'Calendrier', description: 'Planifiez et visualisez vos publications à venir', icon: Calendar },
+    'messages': { title: 'Messages', description: 'Gérez vos conversations LinkedIn', icon: MessageSquare },
+    'profile': { title: 'Optimisation profil', description: 'Analysez et optimisez votre profil LinkedIn', icon: User },
+    'prospecting': { title: 'Prospecting', description: 'Trouvez de nouveaux prospects sur LinkedIn', icon: Target },
+    'pipeline': { title: 'Pipeline Prospects', description: 'Suivez vos prospects dans le funnel de conversion', icon: Filter },
+    'crm': { title: 'CRM Séquences', description: 'Automatisez vos séquences de messages', icon: Mail },
+    'networking': { title: 'Networking', description: 'Développez votre réseau LinkedIn', icon: Network },
+    'agent-ia': { title: 'Agent IA', description: 'Votre assistant IA pour LinkedIn', icon: Bot },
+    'mission-scout': { title: 'Mission Scout', description: 'Identifiez les opportunités et tendances', icon: Search },
+    'templates-ia': { title: 'Templates IA', description: 'Bibliothèque de templates de posts par industrie', icon: FileCode },
+    'logs': { title: 'Logs', description: 'Historique des actions et erreurs', icon: ScrollText },
+    'reports': { title: 'Rapports', description: 'Rapports de performance détaillés', icon: FileBarChart },
+  }
+
+  const info = tabInfo[tabId] || { title: tabId, description: '', icon: Sparkles }
+  const Icon = info.icon
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
+          <Icon className="h-7 w-7 text-emerald-600" />
+          {info.title}
+        </h1>
+        <p className="text-slate-500 mt-1">{info.description}</p>
+      </div>
+      <Card className="border-slate-200">
+        <CardContent className="py-16 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-50 mb-4">
+            <Icon className="h-8 w-8 text-emerald-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">{info.title}</h3>
+          <p className="text-sm text-slate-500 max-w-md mx-auto mb-4">
+            Cette fonctionnalité est en cours de développement.
+            Elle sera disponible prochainement.
+          </p>
+          <Badge variant="secondary" className="bg-amber-100 text-amber-700">
+            Bientôt disponible
+          </Badge>
         </CardContent>
       </Card>
     </div>
