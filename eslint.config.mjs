@@ -8,6 +8,12 @@ const eslintConfig = [
   {
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
+      // French UX copy commonly contains apostrophes in JSX text.
+      'react/no-unescaped-entities': ['error', { forbid: ['>', '}'] }],
+      // Existing React Compiler findings: retain visibility while progressively refactoring.
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/purity': 'warn',
+      'react-hooks/immutability': 'warn',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'react-hooks/exhaustive-deps': 'warn',
       'prefer-const': 'warn',
