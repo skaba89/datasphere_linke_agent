@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { setSessionCookie } from '@/lib/auth'
 import { sendWelcomeEmail } from '@/lib/email'
 import { applyRateLimit, RATE_LIMITS, rateLimitHeaders } from '@/lib/rate-limit'
+import { processReferralOnSignup, ensureReferralCode } from '@/lib/affiliate'
 import bcrypt from 'bcryptjs'
 
 // Validation email RFC simple
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
         }
       )
     }
-    const { email, password, name } = await request.json()
+    const { email, password, name, referralCode } = await request.json()
 
     if (!email || !password) {
       return NextResponse.json(
@@ -81,6 +82,16 @@ export async function POST(request: Request) {
     })
 
     await setSessionCookie(user.id)
+
+    // ✅ Génère un code de parrainage pour ce nouvel user
+    ensureReferralCode(user.id, user.name).catch(() => {})
+
+    // ✅ Traite le referral code si fourni (lien d'affiliation)
+    if (referralCode && typeof referralCode === 'string') {
+      processReferralOnSignup(user.id, referralCode.toUpperCase().trim()).catch((err) =>
+        console.warn('[Register] Affiliate referral failed:', err.message)
+      )
+    }
 
     // ✅ Email de bienvenue (async, ne bloque pas la réponse)
     sendWelcomeEmail(user.email, user.name).catch((err) =>

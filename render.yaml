@@ -82,3 +82,7 @@ crons:
   - name: onboarding-emails
     schedule: "0 9 * * *"
     command: "curl -fsSL -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:10000/api/cron/onboarding-emails || true"
+  # Payouts affiliés (1er du mois à 10h UTC)
+  - name: affiliate-payouts
+    schedule: "0 10 1 * *"
+    command: "curl -fsSL -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:10000/api/cron/payouts || true"

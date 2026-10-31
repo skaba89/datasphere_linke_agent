@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getStripe } from '@/lib/stripe'
 import { createTeamForBusinessUser } from '@/lib/teams'
+import { convertReferral } from '@/lib/affiliate'
+import { logger } from '@/lib/logger'
 import Stripe from 'stripe'
 
 // ============================================================
@@ -78,6 +80,54 @@ export async function POST(request: Request) {
               console.warn(`[Stripe] Failed to create team for ${userId}:`, err.message)
             }
           }
+
+          // ✅ Convertir le referral (commission 20% pour le parrain)
+          // Plan prices: Pro = 2900 cents, Business = 7900 cents
+          const planAmount = plan === 'business' ? 7900 : 2900
+          try {
+            await convertReferral(userId, planAmount)
+            logger.info({ userId, plan, planAmount }, 'Referral converted')
+          } catch (err: any) {
+            logger.warn({ err: err.message, userId }, 'Failed to convert referral')
+          }
+        }
+        break
+      }
+
+      case 'invoice.paid': {
+        // Renouvellement mensuel payé
+        const invoice = event.data.object as Stripe.Invoice
+        const customerId = invoice.customer as string
+        const user = await db.user.findFirst({ where: { stripeCustomerId: customerId } })
+        if (user) {
+          await db.user.update({
+            where: { id: user.id },
+            data: { stripeSubscriptionStatus: 'active' },
+          })
+          logger.info({ userId: user.id, invoiceId: invoice.id }, 'Invoice paid - subscription renewed')
+        }
+        break
+      }
+
+      case 'customer.subscription.trial_will_end': {
+        // Stripe notifie 3 jours avant la fin du trial
+        const sub = event.data.object as Stripe.Subscription
+        const userId = sub.metadata?.userId
+        if (userId) {
+          logger.info({ userId, subscriptionId: sub.id }, 'Stripe trial will end soon')
+          // L'email d'onboarding est déjà géré par notre cron quotidien
+        }
+        break
+      }
+
+      case 'customer.subscription.paused': {
+        const sub = event.data.object as Stripe.Subscription
+        const userId = sub.metadata?.userId
+        if (userId) {
+          await db.user.update({
+            where: { id: userId },
+            data: { stripeSubscriptionStatus: 'paused' },
+          })
         }
         break
       }

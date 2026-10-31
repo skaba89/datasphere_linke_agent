@@ -51,8 +51,22 @@ model User {
   // API publique (Plan Business)
   apiKeys          ApiKey[]
 
+  // Affiliation
+  referralCode    String?    @unique // code personnalisé (ex: "marie2026")
+  referredById    String?    // user qui a référé ce user
+  referrals       Referral[] @relation("Referrer")
+  referredBy      Referral[] @relation("Referred")
+  payouts         Payout[]
+
+  // 2FA / TOTP
+  twoFactorSecret       String?   // secret TOTP chiffré
+  twoFactorEnabled      Boolean   @default(false)
+  twoFactorBackupCodes  String?   // codes de secours hashés (JSON)
+
   @@index([email])
   @@index([plan])
+  @@index([referralCode])
+  @@index([referredById])
 }
 
 // ============================================================
@@ -73,6 +87,51 @@ model ApiKey {
 
   @@index([userId])
   @@index([hashedKey])
+}
+
+// ============================================================
+// AFFILIATION - Programme de parrainage
+// ============================================================
+
+model Referral {
+  id            String   @id @default(cuid())
+  referrerId    String   // user qui a partagé son code
+  referredId    String   // user qui s'est inscrit via le code
+  referralCode  String   // code utilisé (snapshot)
+  status        String   @default("pending") // pending | converted | paid
+  commissionAmount Int   @default(0) // en centimes (20% du MRR)
+  convertedAt   DateTime? // set quand le referred passe en payant
+  paidAt        DateTime? // set quand le payout est effectué
+  payoutId      String?  // lien vers le payout
+  createdAt     DateTime @default(now())
+
+  referrer      User     @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred      User     @relation("Referred", fields: [referredId], references: [id], onDelete: Cascade)
+  payout        Payout?  @relation(fields: [payoutId], references: [id])
+
+  @@unique([referredId]) // un user ne peut être référé qu'une fois
+  @@index([referrerId])
+  @@index([status])
+  @@index([referralCode])
+}
+
+model Payout {
+  id            String    @id @default(cuid())
+  userId        String    // user qui reçoit le paiement
+  amount        Int       // en centimes
+  currency      String    @default("EUR")
+  status        String    @default("pending") // pending | paid | failed
+  period        String    // ex: "2026-10" (YYYY-MM)
+  paidAt        DateTime?
+  stripeTransferId String? // ID du transfert Stripe Connect
+  referrals     Referral[]
+  createdAt     DateTime  @default(now())
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, period])
+  @@index([userId])
+  @@index([status])
 }
 
 // ============================================================
