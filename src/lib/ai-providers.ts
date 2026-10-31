@@ -39,12 +39,44 @@ export function getActiveProvider(): string | null {
 // ============================================================
 // Provider 1 : Google Gemini
 // ============================================================
-async function callGemini(params: ChatParams): Promise<ChatResult> {
-  const apiKey = process.env.GEMINI_API_KEY!
-  // Liste des modèles à essayer dans l'ordre
-  // D'abord lister les modèles disponibles via l'API, puis fallback
-  const models = [
-    process.env.GEMINI_MODEL,
+
+// Cache des modèles disponibles (évite de re-list à chaque appel)
+let cachedGeminiModel: string | null = null
+
+async function findAvailableGeminiModel(apiKey: string): Promise<string | null> {
+  if (cachedGeminiModel) return cachedGeminiModel
+
+  // 1. D'abord essayer l'API ListModels pour trouver un modèle valide
+  try {
+    const listRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
+    )
+    if (listRes.ok) {
+      const listData = await listRes.json()
+      const models = listData.models || []
+      // Chercher un modèle qui supporte generateContent et qui contient "flash" (rapide + gratuit)
+      const flashModel = models.find((m: any) =>
+        m.supportedGenerationMethods?.includes('generateContent') &&
+        m.name?.includes('flash')
+      )
+      if (flashModel) {
+        // Le nom retourné est "models/gemini-X.X-flash" — on garde juste le nom du modèle
+        cachedGeminiModel = flashModel.name.replace('models/', '')
+        return cachedGeminiModel
+      }
+      // Sinon prendre le premier qui supporte generateContent
+      const anyModel = models.find((m: any) =>
+        m.supportedGenerationMethods?.includes('generateContent')
+      )
+      if (anyModel) {
+        cachedGeminiModel = anyModel.name.replace('models/', '')
+        return cachedGeminiModel
+      }
+    }
+  } catch {}
+
+  // 2. Fallback : essayer des noms connus manuellement
+  const fallbackModels = [
     'gemini-flash-latest',
     'gemini-2.5-flash',
     'gemini-2.0-flash',
@@ -52,12 +84,42 @@ async function callGemini(params: ChatParams): Promise<ChatResult> {
     'gemini-1.5-flash-latest',
     'gemini-1.5-pro',
     'gemini-pro',
-  ].filter(Boolean) as string[]
+  ]
 
-  let lastError = ''
-  for (const model of models) {
-    // Utiliser v2beta pour les modèles récents, v1beta pour les anciens
-    const apiVersion = model.startsWith('gemini-2.') || model.startsWith('gemini-flash') ? 'v2beta' : 'v1beta'
+  for (const model of fallbackModels) {
+    try {
+      const testRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: 'Hi' }] }],
+            generationConfig: { maxOutputTokens: 5 },
+          }),
+        }
+      )
+      if (testRes.ok) {
+        cachedGeminiModel = model
+        return model
+      }
+    } catch {}
+  }
+
+  return null
+}
+
+async function callGemini(params: ChatParams): Promise<ChatResult> {
+  const apiKey = process.env.GEMINI_API_KEY!
+
+  // Trouver un modèle qui marche
+  const model = process.env.GEMINI_MODEL || await findAvailableGeminiModel(apiKey)
+  if (!model) {
+    throw new Error('Aucun modèle Gemini disponible. Vérifiez votre GEMINI_API_KEY.')
+  }
+
+  // Essayer v1beta puis v2beta
+  for (const apiVersion of ['v1beta', 'v2beta']) {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${apiKey}`,
       {
@@ -78,11 +140,41 @@ async function callGemini(params: ChatParams): Promise<ChatResult> {
       const content = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
       return { content, provider: 'gemini' }
     }
-    lastError = `${res.status}: ${await res.text()}`
-    // Si c'est une 404 (model not found), essayer le suivant
-    if (res.status !== 404) break
+    // Si 404 sur v1beta, essayer v2beta
+    if (res.status === 404) continue
+    // Autre erreur (403, 429, 500) → ne pas réessayer
+    const errText = await res.text()
+    throw new Error(`Gemini API error ${res.status}: ${errText}`)
   }
-  throw new Error(`Gemini API error: ${lastError}`)
+
+  // Si on arrive ici, le modèle n'existe sur aucune version d'API
+  // Invalider le cache et réessayer une fois
+  cachedGeminiModel = null
+  const newModel = await findAvailableGeminiModel(apiKey)
+  if (newModel && newModel !== model) {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${newModel}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: params.system }] },
+          contents: [{ role: 'user', parts: [{ text: params.user }] }],
+          generationConfig: {
+            temperature: params.temperature ?? 0.7,
+            maxOutputTokens: params.maxTokens ?? 2000,
+          },
+        }),
+      }
+    )
+    if (res.ok) {
+      const data = await res.json()
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+      return { content, provider: 'gemini' }
+    }
+  }
+
+  throw new Error(`Gemini: aucun modèle disponible avec cette clé API`)
 }
 
 // ============================================================
