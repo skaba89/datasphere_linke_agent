@@ -32,6 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { LinkedInAccountSwitcher } from '@/components/linkedin-account-switcher'
 import { NotificationBell } from '@/components/notification-bell'
 import { AgencyDashboard } from '@/components/agency-dashboard'
+import { CalendarTab, TemplatesTab, LogsTab, ReportsTab, AgentIATab, ProfileTab, ComingSoonTab } from '@/components/dashboard-tabs'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, LineChart, Line, BarChart, Bar, Legend
@@ -378,13 +379,41 @@ export default function Home() {
                 <SettingsTab user={user} />
               </motion.div>
             )}
-            {/* New tabs from old version */}
-            {(activeTab === 'calendar' || activeTab === 'messages' || activeTab === 'profile' ||
-              activeTab === 'prospecting' || activeTab === 'pipeline' || activeTab === 'crm' ||
-              activeTab === 'networking' || activeTab === 'agent-ia' || activeTab === 'mission-scout' ||
-              activeTab === 'templates-ia' || activeTab === 'logs' || activeTab === 'reports') && (
+            {/* Real functional tabs */}
+            {activeTab === 'calendar' && (
+              <motion.div key="calendar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <CalendarTab />
+              </motion.div>
+            )}
+            {activeTab === 'templates-ia' && (
+              <motion.div key="templates-ia" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <TemplatesTab />
+              </motion.div>
+            )}
+            {activeTab === 'logs' && (
+              <motion.div key="logs" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <LogsTab />
+              </motion.div>
+            )}
+            {activeTab === 'reports' && (
+              <motion.div key="reports" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <ReportsTab />
+              </motion.div>
+            )}
+            {activeTab === 'agent-ia' && (
+              <motion.div key="agent-ia" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="h-full">
+                <AgentIATab />
+              </motion.div>
+            )}
+            {activeTab === 'profile' && (
+              <motion.div key="profile" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <ProfileTab />
+              </motion.div>
+            )}
+            {/* Coming soon tabs */}
+            {['messages', 'prospecting', 'pipeline', 'crm', 'networking', 'mission-scout'].includes(activeTab) && (
               <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
-                <PlaceholderTab tabId={activeTab} />
+                <ComingSoonTab title={activeTab} description="Cette fonctionnalité sera disponible prochainement." icon={Sparkles} />
               </motion.div>
             )}
           </AnimatePresence>
