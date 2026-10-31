@@ -2,116 +2,82 @@
 # ============================================================
 # DataSphere - Script de démarrage production (Render)
 #
-# Étapes :
-#   1. Vérifier les env vars critiques
-#   2. Attendre que PostgreSQL soit accessible (retry 60s)
-#   3. Appliquer les migrations Prisma (avec retry)
-#   4. Démarrer le serveur Next.js
+# ⚠️ STRATÉGIE CRITIQUE POUR RENDER :
+#   1. Démarrer le serveur Next.js EN PREMIER (port 10000)
+#      → Render détecte le port → service marqué "live"
+#   2. Lancer les migrations EN ARRIÈRE-PLAN (non bloquant)
+#      → Si DB pas prête, retry automatique toutes les 10s
+#      → Server reste up même si migrations échouent
 #
-# ⚠️ Ne JAMAIS faire `set -e` globalement : si les migrations
-# échouent, on démarre quand même le serveur (Render healthcheck
-# pourra retry). Sinon le container meurt et Render marque le
-# service comme "failed" sans possibilité de récupération.
+# Pourquoi ? Render a un timeout (~5 min) pour détecter un port
+# ouvert. Si on attend la DB avant de démarrer le serveur, le
+# timeout explose et le service est marqué "failed".
 # ============================================================
 
-echo "[DataSphere] Starting production server..."
+echo "[DataSphere] ============================================"
+echo "[DataSphere] Starting DataSphere production server..."
 echo "[DataSphere] CWD: $(pwd)"
-echo "[DataSphere] Node version: $(node --version)"
+echo "[DataSphere] Node: $(node --version)"
 echo "[DataSphere] Time: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "[DataSphere] ============================================"
 
-# ─── Vérifications env vars ───
+# ─── Vérifications critiques ───
 if [ -z "$DATABASE_URL" ]; then
   echo "[DataSphere] FATAL: DATABASE_URL not set"
   exit 1
 fi
-echo "[DataSphere] DATABASE_URL: ${DATABASE_URL#*@}"  # masque credentials
+echo "[DataSphere] DATABASE_URL: ${DATABASE_URL#*@}"
 
-if [ -z "$DATASPHERE_AUTH_SECRET" ]; then
-  echo "[DataSphere] WARNING: DATASPHERE_AUTH_SECRET not set, using insecure default"
+if [ -z "$JWT_SECRET" ] && [ -z "$DATASPHERE_AUTH_SECRET" ]; then
+  echo "[DataSphere] WARNING: No JWT_SECRET set - auth will be insecure!"
 fi
 
-# ─── Fonction : attendre que la DB soit prête ───
-wait_for_db() {
-  echo "[DataSphere] Waiting for PostgreSQL to be ready..."
-  MAX_RETRIES=30
-  RETRY=0
+# ============================================================
+# Étape 1 : Lancer les migrations EN ARRIÈRE-PLAN (non bloquant)
+# ============================================================
+(
+  echo "[DataSphere] [bg] Migration worker started"
 
-  while [ $RETRY -lt $MAX_RETRIES ]; do
-    # Tester la connexion via prisma db execute (requête SQL simple)
-    PRISMA_BIN="./node_modules/prisma/build/index.js"
+  PRISMA_BIN="./node_modules/prisma/build/index.js"
+  MAX_ATTEMPTS=30
+  attempt=1
+
+  while [ $attempt -le $MAX_ATTEMPTS ]; do
+    echo "[DataSphere] [bg] Migration attempt $attempt/$MAX_ATTEMPTS..."
+
     if [ -f "$PRISMA_BIN" ]; then
-      if echo "SELECT 1;" | node "$PRISMA_BIN" db execute --stdin 2>/dev/null; then
-        echo "[DataSphere] PostgreSQL is ready! (attempt $((RETRY+1)))"
-        return 0
-      fi
+      OUTPUT=$(node "$PRISMA_BIN" migrate deploy 2>&1)
+      EXIT_CODE=$?
     else
-      # Fallback : ping avec psql si disponible
-      if command -v psql >/dev/null 2>&1; then
-        if psql "$DATABASE_URL" -c "SELECT 1;" >/dev/null 2>&1; then
-          echo "[DataSphere] PostgreSQL is ready! (psql, attempt $((RETRY+1)))"
-          return 0
-        fi
-      fi
+      OUTPUT=$(npx prisma migrate deploy 2>&1)
+      EXIT_CODE=$?
     fi
 
-    RETRY=$((RETRY+1))
-    echo "[DataSphere] DB not ready, retry $RETRY/$MAX_RETRIES (waiting 2s)..."
-    sleep 2
-  done
-
-  echo "[DataSphere] WARNING: DB not ready after $MAX_RETRIES attempts"
-  return 1
-}
-
-# ─── Étape 1 : Attendre la DB ───
-wait_for_db || echo "[DataSphere] Continuing despite DB not ready..."
-
-# ─── Étape 2 : Appliquer les migrations Prisma ───
-echo "[DataSphere] Applying Prisma migrations..."
-
-PRISMA_BIN="./node_modules/prisma/build/index.js"
-MIGRATION_SUCCESS=false
-
-if [ -f "$PRISMA_BIN" ]; then
-  echo "[DataSphere] Using Prisma binary: $PRISMA_BIN"
-
-  # Retry 3 fois
-  for attempt in 1 2 3; do
-    if node "$PRISMA_BIN" migrate deploy 2>&1; then
-      echo "[DataSphere] Migrations applied successfully (attempt $attempt)"
-      MIGRATION_SUCCESS=true
-      break
+    if [ $EXIT_CODE -eq 0 ]; then
+      echo "[DataSphere] [bg] ✅ Migrations applied successfully"
+      echo "$OUTPUT" | head -5
+      exit 0
     else
-      echo "[DataSphere] Migration attempt $attempt failed, retrying in 5s..."
-      sleep 5
+      echo "[DataSphere] [bg] Attempt $attempt failed (exit $EXIT_CODE), retrying in 10s..."
+      echo "[DataSphere] [bg] Error: $(echo "$OUTPUT" | head -3)"
+      sleep 10
+      attempt=$((attempt + 1))
     fi
   done
-else
-  echo "[DataSphere] Prisma binary not found at $PRISMA_BIN"
-  echo "[DataSphere] Listing node_modules/prisma:"
-  ls -la node_modules/prisma/ 2>/dev/null || echo "  node_modules/prisma not found"
 
-  # Fallback npx
-  echo "[DataSphere] Trying npx prisma as fallback..."
-  for attempt in 1 2 3; do
-    if npx prisma migrate deploy 2>&1; then
-      echo "[DataSphere] Migrations applied via npx (attempt $attempt)"
-      MIGRATION_SUCCESS=true
-      break
-    else
-      echo "[DataSphere] npx attempt $attempt failed, retrying in 5s..."
-      sleep 5
-    fi
-  done
-fi
+  echo "[DataSphere] [bg] WARNING: Migrations failed after $MAX_ATTEMPTS attempts"
+  echo "[DataSphere] [bg] Server is running but DB may be out of sync"
+  echo "[DataSphere] [bg] Check /api/health for diagnostics"
+) &
+MIGRATION_PID=$!
 
-if [ "$MIGRATION_SUCCESS" = "false" ]; then
-  echo "[DataSphere] WARNING: Migrations failed after retries."
-  echo "[DataSphere] Starting server anyway (DB may be out of sync)."
-  echo "[DataSphere] Manual fix: render ssh → npx prisma migrate deploy"
-fi
-
-# ─── Étape 3 : Démarrer le serveur Next.js ───
+# ============================================================
+# Étape 2 : Démarrer le serveur Next.js IMMÉDIATEMENT
+# (Render détecte le port 10000 → service marqué "live")
+# ============================================================
 echo "[DataSphere] Starting Next.js server on port ${PORT:-10000}..."
-echo "[DataSphere] Hostname: ${HOSTNAME:-0.0.0.0}"
+echo "[DataSphere] Migrations running in background (PID: $MIGRATION_PID)"
+echo "[DataSphere] ============================================"
+
+# exec remplace le shell courant par node → signaux properly forwardés
 exec node server.js
