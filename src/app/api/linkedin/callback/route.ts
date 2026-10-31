@@ -37,7 +37,12 @@ export async function GET(request: Request) {
 
   const clientId = process.env.LINKEDIN_CLIENT_ID
   const clientSecret = process.env.LINKEDIN_CLIENT_SECRET
-  const redirectUri = process.env.LINKEDIN_REDIRECT_URI || `${appUrl}/api/linkedin/callback`
+  // Redirect URI : RENDER_EXTERNAL_URL en priorité (toujours fiable sur Render)
+  const redirectUri = (process.env.LINKEDIN_REDIRECT_URI && process.env.LINKEDIN_REDIRECT_URI.startsWith('http'))
+    ? process.env.LINKEDIN_REDIRECT_URI
+    : (process.env.RENDER_EXTERNAL_URL && process.env.RENDER_EXTERNAL_URL.startsWith('http'))
+    ? `${process.env.RENDER_EXTERNAL_URL}/api/linkedin/callback`
+    : `${appUrl}/api/linkedin/callback`
 
   if (!clientId || !clientSecret || !redirectUri) {
     return NextResponse.redirect(new URL('/?linkedin_error=config_missing', appUrl))

@@ -19,9 +19,18 @@ const LINKEDIN_TOKEN_URL = 'https://www.linkedin.com/oauth/v2/accessToken'
 const SCOPES = ['openid', 'profile', 'email', 'w_member_social'].join(' ')
 
 function getLinkedInRedirectUri(): string | null {
-  if (process.env.LINKEDIN_REDIRECT_URI) return process.env.LINKEDIN_REDIRECT_URI
-  const appUrl = getAppUrl()
-  if (appUrl && appUrl.startsWith('http')) return `${appUrl}/api/linkedin/callback`
+  // 1. LINKEDIN_REDIRECT_URI explicite (priorité)
+  if (process.env.LINKEDIN_REDIRECT_URI && process.env.LINKEDIN_REDIRECT_URI.startsWith('http')) {
+    return process.env.LINKEDIN_REDIRECT_URI
+  }
+  // 2. RENDER_EXTERNAL_URL (auto par Render, TOUJOURS fiable)
+  if (process.env.RENDER_EXTERNAL_URL && process.env.RENDER_EXTERNAL_URL.startsWith('http')) {
+    return `${process.env.RENDER_EXTERNAL_URL}/api/linkedin/callback`
+  }
+  // 3. NEXT_PUBLIC_APP_URL (si valide HTTP)
+  if (process.env.NEXT_PUBLIC_APP_URL && (process.env.NEXT_PUBLIC_APP_URL.startsWith('http://') || process.env.NEXT_PUBLIC_APP_URL.startsWith('https://'))) {
+    return `${process.env.NEXT_PUBLIC_APP_URL}/api/linkedin/callback`
+  }
   return null
 }
 

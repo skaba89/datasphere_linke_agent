@@ -71,7 +71,7 @@ export function LinkedInAccountSwitcher() {
   if (accounts.length === 0) {
     return (
       <div className="text-sm text-slate-500">
-        <a href="/onboarding" className="text-emerald-600 hover:underline">
+        <a href="/connect/linkedin" className="text-emerald-600 hover:underline">
           Connecter un compte LinkedIn →
         </a>
       </div>
@@ -157,7 +157,7 @@ export function LinkedInAccountSwitcher() {
 
       {/* Lien pour connecter un nouveau compte */}
       <a
-        href="/onboarding"
+        href="/connect/linkedin"
         className="block text-xs text-[#0A66C2] hover:underline pt-1"
       >
         + Connecter un autre compte LinkedIn

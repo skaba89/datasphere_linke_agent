@@ -100,19 +100,8 @@ function OnboardingContent() {
   }
 
   const connectLinkedIn = async () => {
-    setConnecting(true)
-    try {
-      // 1. Demander l'URL d'autorisation LinkedIn au backend
-      const res = await fetch('/api/linkedin/auth')
-      const data = await res.json()
-      if (!data.success) throw new Error(data.error)
-
-      // 2. Rediriger vers LinkedIn OAuth (vraie page LinkedIn)
-      window.location.href = data.data.authUrl
-    } catch (err: any) {
-      toast.error(err.message)
-      setConnecting(false)
-    }
+    // Rediriger vers la page de connexion LinkedIn dédiée
+    window.location.href = '/connect/linkedin'
   }
 
   const generatePost = async () => {
