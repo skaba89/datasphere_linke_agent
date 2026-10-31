@@ -6,5 +6,15 @@ skills/
 upload/
 download/
 worklog.md
-*.md
-!prisma/
+tests/
+test-results/
+playwright-report/
+.env
+.env*.local
+*.sqlite
+*.db
+prisma/*.sqlite
+prisma/*.db
+.github/
+docs/
+scripts/test-ai.mjs
