@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { encryptLinkedInToken } from '@/lib/linkedin-token-crypto'
 import { db } from '@/lib/db'
 import { getCurrentUserId } from '@/lib/auth'
 
@@ -48,6 +49,8 @@ export async function PUT(
       }
     }
 
+    if (typeof allowed.accessToken === 'string') allowed.accessToken = encryptLinkedInToken(allowed.accessToken)
+    if (typeof allowed.refreshToken === 'string') allowed.refreshToken = encryptLinkedInToken(allowed.refreshToken)
     const account = await db.linkedInAccount.update({
       where: { id },
       data: allowed,
