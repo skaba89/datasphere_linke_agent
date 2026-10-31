@@ -4,6 +4,7 @@ import { encryptLinkedInToken } from '@/lib/linkedin-token-crypto'
 import { db } from '@/lib/db'
 import { getCurrentUserId } from '@/lib/auth'
 import { checkPlanLimit } from '@/lib/plans'
+import { getAppUrl } from '@/lib/app-url'
 
 // ============================================================
 // GET /api/linkedin/auth
@@ -13,6 +14,20 @@ import { checkPlanLimit } from '@/lib/plans'
 const LINKEDIN_AUTH_URL = 'https://www.linkedin.com/oauth/v2/authorization'
 const LINKEDIN_TOKEN_URL = 'https://www.linkedin.com/oauth/v2/accessToken'
 const SCOPES = ['r_liteprofile', 'r_emailaddress', 'w_member_social'].join(' ')
+
+// Helper : récupère le redirect URI (auto-détecté si pas défini)
+function getLinkedInRedirectUri(): string | null {
+  // 1. LINKEDIN_REDIRECT_URI explicite (priorité)
+  if (process.env.LINKEDIN_REDIRECT_URI) {
+    return process.env.LINKEDIN_REDIRECT_URI
+  }
+  // 2. Auto-déduire depuis RENDER_EXTERNAL_URL ou NEXT_PUBLIC_APP_URL
+  const appUrl = getAppUrl()
+  if (appUrl && appUrl.startsWith('http')) {
+    return `${appUrl}/api/linkedin/callback`
+  }
+  return null
+}
 
 export async function GET() {
   try {
@@ -26,13 +41,13 @@ export async function GET() {
 
     const clientId = process.env.LINKEDIN_CLIENT_ID
     const clientSecret = process.env.LINKEDIN_CLIENT_SECRET
-    const redirectUri = process.env.LINKEDIN_REDIRECT_URI
+    const redirectUri = getLinkedInRedirectUri()
 
     if (!clientId || !clientSecret || !redirectUri) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Configuration LinkedIn manquante. L\'admin doit définir LINKEDIN_CLIENT_ID/SECRET/REDIRECT_URI.',
+          error: 'Configuration LinkedIn manquante. L\'admin doit définir LINKEDIN_CLIENT_ID et LINKEDIN_CLIENT_SECRET. (REDIRECT_URI auto-détecté)',
         },
         { status: 500 }
       )
@@ -103,7 +118,14 @@ export async function POST(request: Request) {
 
     const clientId = process.env.LINKEDIN_CLIENT_ID!
     const clientSecret = process.env.LINKEDIN_CLIENT_SECRET!
-    const redirectUri = process.env.LINKEDIN_REDIRECT_URI!
+    const redirectUri = getLinkedInRedirectUri()
+
+    if (!redirectUri) {
+      return NextResponse.json(
+        { success: false, error: 'LINKEDIN_REDIRECT_URI non configuré et RENDER_EXTERNAL_URL non détecté' },
+        { status: 500 }
+      )
+    }
 
     // Échange code -> access token
     const tokenRes = await fetch(LINKEDIN_TOKEN_URL, {

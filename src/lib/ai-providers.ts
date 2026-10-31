@@ -41,8 +41,11 @@ export function getActiveProvider(): string | null {
 // ============================================================
 async function callGemini(params: ChatParams): Promise<ChatResult> {
   const apiKey = process.env.GEMINI_API_KEY!
+  // Model configurable via env var, defaults to gemini-2.0-flash
+  // Available models: gemini-2.0-flash, gemini-1.5-flash, gemini-1.5-flash-latest
+  const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash'
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

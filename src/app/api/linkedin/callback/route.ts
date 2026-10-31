@@ -43,9 +43,10 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL('/onboarding?error=invalid_state', appUrl))
   }
 
-  const clientId = process.env.LINKEDIN_CLIENT_ID!
-  const clientSecret = process.env.LINKEDIN_CLIENT_SECRET!
-  const redirectUri = process.env.LINKEDIN_REDIRECT_URI!
+  const clientId = process.env.LINKEDIN_CLIENT_ID
+  const clientSecret = process.env.LINKEDIN_CLIENT_SECRET
+  // Auto-déduire le redirect URI depuis RENDER_EXTERNAL_URL si pas défini
+  const redirectUri = process.env.LINKEDIN_REDIRECT_URI || `${appUrl}/api/linkedin/callback`
 
   if (!clientId || !clientSecret || !redirectUri) {
     return NextResponse.redirect(
