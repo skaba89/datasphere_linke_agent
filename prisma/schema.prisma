@@ -74,6 +74,10 @@ model User {
   crmSequences         CrmSequence[]
   crmMessages          CrmMessage[]
 
+  // Automation
+  commentReplies       CommentReply[]
+  automationLogs       AutomationLog[]
+
   @@index([email])
   @@index([plan])
   @@index([referralCode])
@@ -165,6 +169,46 @@ model CrmMessage {
   @@index([userId])
   @@index([prospectId])
   @@index([status])
+}
+
+// ============================================================
+// AUTOMATION - Auto-reply commentaires + Email bridge
+// ============================================================
+
+model CommentReply {
+  id            String   @id @default(cuid())
+  userId        String
+  postProposalId String?  // post concerné (si dans notre DB)
+  linkedinPostId String?  // URN du post LinkedIn
+  commenterName String
+  commenterText String
+  generatedReply String  // réponse générée par l'IA
+  status        String   @default("pending") // pending | approved | sent | rejected | edited
+  editedReply   String?  // si l'utilisateur a modifié la réponse
+  sentiment     String?  // positive | neutral | negative (analyse IA)
+  createdAt     DateTime @default(now())
+  repliedAt     DateTime?
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model AutomationLog {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // sequence_email | comment_reply | message_bridge
+  action      String   // sent | generated | failed | skipped
+  details     String?  // JSON avec contexte
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
 }
 
 // ============================================================

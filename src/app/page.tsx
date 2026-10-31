@@ -33,6 +33,7 @@ import { LinkedInAccountSwitcher } from '@/components/linkedin-account-switcher'
 import { NotificationBell } from '@/components/notification-bell'
 import { AgencyDashboard } from '@/components/agency-dashboard'
 import { CalendarTab, TemplatesTab, LogsTab, ReportsTab, AgentIATab, ProfileTab, ComingSoonTab, ProspectingTab, PipelineTab, CrmTab, NetworkingTab, MessagesTab } from '@/components/dashboard-tabs'
+import { CommentsTab } from '@/components/comments-tab'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, LineChart, Line, BarChart, Bar, Legend
@@ -268,6 +269,7 @@ export default function Home() {
         { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'proposals', label: 'Posts', icon: FileText },
         { id: 'calendar', label: 'Calendrier', icon: Calendar },
+        { id: 'comments', label: 'Commentaires', icon: MessageCircle },
         { id: 'messages', label: 'Messages', icon: MessageSquare },
         { id: 'analytics', label: 'Analytics', icon: BarChart3 },
       ],
@@ -419,6 +421,11 @@ export default function Home() {
             {activeTab === 'messages' && (
               <motion.div key="messages" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
                 <MessagesTab />
+              </motion.div>
+            )}
+            {activeTab === 'comments' && (
+              <motion.div key="comments" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <CommentsTab />
               </motion.div>
             )}
             {activeTab === 'prospecting' && (
