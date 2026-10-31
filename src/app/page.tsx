@@ -1822,7 +1822,7 @@ function LandingPage({ onLogin, onCTA }: { onLogin: () => void; onCTA: () => voi
             <div>
               <h4 className="font-semibold text-white text-sm mb-4">Produit</h4>
               <ul className="space-y-2.5">
-                <li><a href="/#fonctionnalites" className="text-sm text-slate-400 hover:text-white transition-colors">Fonctionnalités</a></li>
+                <li><Link href="/#fonctionnalites" className="text-sm text-slate-400 hover:text-white transition-colors">Fonctionnalités</Link></li>
                 <li><Link href="/pricing" className="text-sm text-slate-400 hover:text-white transition-colors">Tarifs</Link></li>
                 <li><Link href="/blog" className="text-sm text-slate-400 hover:text-white transition-colors">Blog</Link></li>
                 <li><a href="/affiliate" className="text-sm text-slate-400 hover:text-white transition-colors">Affiliation</a></li>
