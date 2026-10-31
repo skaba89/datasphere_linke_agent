@@ -145,7 +145,8 @@ jobs:
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/datasphere_test?schema=public"
           DATASPHERE_AUTH_SECRET: ci-secret-for-build-only-32chars
           NEXT_PUBLIC_APP_URL: http://localhost:10000
-          PLAYWRIGHT_BASE_URL: http://localhost:10000
+          TEST_DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/datasphere_test?schema=public"
+          LINKEDIN_TOKEN_ENCRYPTION_KEY: "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc="
           CI: true
 
       - name: Upload test report
