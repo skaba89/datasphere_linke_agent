@@ -1,41 +1,58 @@
-# DataSphere - Configuration Render
+# ============================================================
+# DataSphere - Configuration Render Blueprint
 # https://render.com/docs/blueprint-spec
-# Déploiement: docker + PostgreSQL + Stripe + LinkedIn OAuth
+#
+# Services créés :
+#   - 1 web service (Docker, port 10000)
+#   - 1 PostgreSQL (free tier, 1GB)
+#   - 4 cron jobs (dans le web service)
+# ============================================================
 
 services:
   - type: web
     name: datasphere
     runtime: docker
-    plan: starter  # 512MB / 0.1 CPU - suffisant pour démarrer
-    region: frankfurt  # Europe - plus proche de vos utilisateurs
+    plan: starter
+    region: frankfurt
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /api/health
     autoDeploy: true
+
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 10000
+        value: "10000"
+      - key: HOSTNAME
+        value: "0.0.0.0"
+
+      # PostgreSQL (auto-injecté depuis la DB ci-dessous)
       - key: DATABASE_URL
         fromDatabase:
           name: datasphere-db
           property: connectionString
+
+      # Auth (auto-généré)
       - key: DATASPHERE_AUTH_SECRET
         generateValue: true
+
+      # URL publique de l'app (auto depuis Render)
       - key: NEXT_PUBLIC_APP_URL
         fromService:
           type: web
           name: datasphere
           property: hosturl
-      # LinkedIn OAuth - à définir dans le dashboard Render
+
+      # LinkedIn OAuth (à définir manuellement dans Render dashboard)
       - key: LINKEDIN_CLIENT_ID
         sync: false
       - key: LINKEDIN_CLIENT_SECRET
         sync: false
       - key: LINKEDIN_REDIRECT_URI
-        sync: false  # ex: https://datasphere.onrender.com/api/linkedin/callback
-      # Stripe - à définir dans le dashboard Render
+        sync: false
+
+      # Stripe (à définir manuellement)
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
@@ -44,45 +61,47 @@ services:
         sync: false
       - key: STRIPE_PRICE_BUSINESS_MONTHLY
         sync: false
-      # Cron secret (pour protéger /api/cron/* endpoints)
+
+      # Cron secret (auto-généré)
       - key: CRON_SECRET
         generateValue: true
-      # Email (Resend) - optionnel, fallback console si manquant
+
+      # Email (Resend) - optionnel
       - key: RESEND_API_KEY
         sync: false
       - key: FROM_EMAIL
         value: "DataSphere <noreply@datasphere.app>"
-      # Sentry (monitoring) - optionnel
+
+      # Sentry - optionnel
       - key: SENTRY_DSN
         sync: false
       - key: NEXT_PUBLIC_SENTRY_DSN
         sync: false
+
       # Logs
       - key: LOG_LEVEL
         value: info
 
-# Base de données PostgreSQL managée par Render
+    # ✅ Cron jobs (doivent être À L'INTÉRIEUR du service web)
+    crons:
+      - name: sync-linkedin-analytics
+        schedule: "0 * * * *"
+        command: "curl -fsSL -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:10000/api/cron/sync-analytics || true"
+      - name: scheduled-publish
+        schedule: "0,30 * * * *"
+        command: "curl -fsSL -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:10000/api/cron/scheduled-publish || true"
+      - name: onboarding-emails
+        schedule: "0 9 * * *"
+        command: "curl -fsSL -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:10000/api/cron/onboarding-emails || true"
+      - name: affiliate-payouts
+        schedule: "0 10 1 * *"
+        command: "curl -fsSL -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:10000/api/cron/payouts || true"
+
+# ============================================================
+# Base de données PostgreSQL managée
+# ============================================================
 databases:
   - name: datasphere-db
-    plan: free  # 1GB, 90 jours gratuits - suffisant pour démarrer
+    plan: free
     region: frankfurt
     ipAllowList: []
-
-# Cron jobs Render
-crons:
-  # Sync analytics LinkedIn toutes les heures
-  - name: sync-linkedin-analytics
-    schedule: "0 * * * *"
-    command: "curl -fsSL -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:10000/api/cron/sync-analytics || true"
-  # Publication automatique des posts approuvés (toutes les 30 min)
-  - name: scheduled-publish
-    schedule: "0,30 * * * *"
-    command: "curl -fsSL -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:10000/api/cron/scheduled-publish || true"
-  # Emails d'onboarding (quotidien à 9h UTC)
-  - name: onboarding-emails
-    schedule: "0 9 * * *"
-    command: "curl -fsSL -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:10000/api/cron/onboarding-emails || true"
-  # Payouts affiliés (1er du mois à 10h UTC)
-  - name: affiliate-payouts
-    schedule: "0 10 1 * *"
-    command: "curl -fsSL -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:10000/api/cron/payouts || true"
