@@ -11,9 +11,9 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './tests/e2e',
-  fullyParallel: true,
+  fullyParallel: false, // Stateful tests share a PostgreSQL database; avoid cross-test interference
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: [
     ['html', { outputFolder: 'tests/report' }],
@@ -22,7 +22,7 @@ export default defineConfig({
   use: {
     // URL de base (Render en prod, localhost en dev)
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:10000',
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     // Timeout généreux pour les actions (LLM peut être lent)
@@ -44,8 +44,9 @@ export default defineConfig({
         reuseExistingServer: !process.env.CI,
         timeout: 120000,
         env: {
-          DATABASE_URL: process.env.TEST_DATABASE_URL || 'file:./test.sqlite',
-          DATASPHERE_AUTH_SECRET: 'test-secret-32-chars-min-aaa',
+          DATABASE_URL: process.env.TEST_DATABASE_URL || process.env.DATABASE_URL || '',
+          DATASPHERE_AUTH_SECRET: process.env.DATASPHERE_AUTH_SECRET || 'test-secret-32-chars-min-aaa',
+          LINKEDIN_TOKEN_ENCRYPTION_KEY: process.env.LINKEDIN_TOKEN_ENCRYPTION_KEY || '',
           NODE_ENV: 'production',
           PORT: '10000',
         },
