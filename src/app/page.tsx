@@ -211,15 +211,16 @@ export default function Home() {
       const data = await res.json()
       if (!data.success) {
         if (res.status === 402) {
-          alert(data.error) // Limite plan atteinte
+          toast.error(data.error) // Limite plan atteinte
         } else {
           throw new Error(data.error)
         }
       } else {
         await refetchProposals()
+        toast.success(`${data.data?.length || 3} posts générés avec succès !`)
       }
     } catch (err: any) {
-      console.error('Génération IA échouée:', err.message)
+      toast.error(`Génération échouée: ${err.message}`)
     } finally {
       setGenerating(false)
     }
@@ -1304,7 +1305,13 @@ function AnalyticsTab({ metrics }: { metrics: Metric[] }) {
                   <Line type="monotone" dataKey="Partages" stroke="#14b8a6" strokeWidth={2.5} dot={{ r: 3 }} />
                 </LineChart>
               </ResponsiveContainer>
-            ) : <Skeleton className="h-full w-full" />}
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center">
+                <BarChart3 className="h-10 w-10 text-slate-300 mb-2" />
+                <p className="text-sm text-slate-500">Aucune donnée d'analytics pour l'instant</p>
+                <p className="text-xs text-slate-400 mt-1">Connectez LinkedIn et publiez du contenu</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -1326,7 +1333,13 @@ function AnalyticsTab({ metrics }: { metrics: Metric[] }) {
                   <Bar dataKey="Vues" fill="#059669" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-            ) : <Skeleton className="h-full w-full" />}
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center">
+                <BarChart3 className="h-10 w-10 text-slate-300 mb-2" />
+                <p className="text-sm text-slate-500">Aucune donnée disponible</p>
+                <p className="text-xs text-slate-400 mt-1">Publiez du contenu pour voir les statistiques</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -1354,7 +1367,13 @@ function AnalyticsTab({ metrics }: { metrics: Metric[] }) {
                   <Area type="monotone" dataKey="Taux d'engagement" stroke="#0d9488" strokeWidth={2.5} fill="url(#rateGrad)" />
                 </AreaChart>
               </ResponsiveContainer>
-            ) : <Skeleton className="h-full w-full" />}
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center">
+                <BarChart3 className="h-10 w-10 text-slate-300 mb-2" />
+                <p className="text-sm text-slate-500">Aucune donnée disponible</p>
+                <p className="text-xs text-slate-400 mt-1">Publiez du contenu pour voir les statistiques</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
