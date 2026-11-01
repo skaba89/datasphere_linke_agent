@@ -97,7 +97,14 @@ export function CommentsTab() {
       const res = await fetch('/api/automation/run', { method: 'POST' })
       const d = await res.json()
       if (!d.success) throw new Error(d.error)
-      toast.success(d.data.comments + ' · ' + d.data.sequences)
+      // Check if nothing was processed
+      const hasComments = d.data.comments && !d.data.comments.includes('0 réponses')
+      const hasSequences = d.data.sequences && !d.data.sequences.includes('0 messages')
+      if (!hasComments && !hasSequences) {
+        toast.info('Rien à automatiser pour le moment. Créez des commentaires ou des séquences CRM pour utiliser cette fonction.')
+      } else {
+        toast.success(d.data.comments + ' · ' + d.data.sequences)
+      }
       load()
     } catch (e: any) { toast.error(e.message) }
     finally { setRunningAutomation(false) }

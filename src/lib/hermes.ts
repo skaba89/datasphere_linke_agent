@@ -359,7 +359,53 @@ async function stepGeneratePosts(userId: string, config: HermesConfig): Promise<
     take: config.maxTasksPerRun,
   })
 
-  if (genTasks.length === 0) return { postsGenerated: 0 }
+  if (genTasks.length === 0) {
+    // ⭐ Fallback: auto-generate from user's SmartPosterSettings if configured
+    const settings = await db.smartPosterSettings.findUnique({ where: { userId } })
+    if (!settings || !settings.topics) {
+      return { postsGenerated: 0, skipped: 'no_topics_configured' }
+    }
+
+    // Check plan limit
+    const planCheck = await checkPlanLimit(userId, 'postsPerDay')
+    if (!planCheck.allowed) {
+      return { postsGenerated: 0, skipped: 'plan_limit_reached' }
+    }
+
+    try {
+      const posts = await generateLinkedInPosts({
+        topics: settings.topics,
+        tone: settings.tone || 'professionnel',
+        targetAudience: settings.targetAudience || '',
+        language: 'fr',
+        count: 1,
+      })
+
+      let postsGenerated = 0
+      for (const post of posts) {
+        await db.postProposal.create({
+          data: {
+            userId,
+            title: post.title || `Post sur ${settings.topics.slice(0, 50)}`,
+            content: post.content,
+            hashtags: post.hashtags || '',
+            format: post.format || 'text',
+            angle: 'hermes-auto',
+            targetAudience: settings.targetAudience || '',
+            qualityScore: 5.0,
+            optimalTime: 'manual',
+            engagementEst: 'pending',
+            status: 'pending',
+          },
+        })
+        postsGenerated++
+      }
+      return { postsGenerated, source: 'auto' }
+    } catch (err: any) {
+      logger.warn({ userId, err: err.message }, 'Hermes auto-generate failed')
+      return { postsGenerated: 0, error: err.message }
+    }
+  }
 
   // Check plan limit
   const planCheck = await checkPlanLimit(userId, 'postsPerDay')

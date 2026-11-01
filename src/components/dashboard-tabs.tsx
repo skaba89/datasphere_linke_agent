@@ -14,7 +14,7 @@ import {
   Calendar, FileCode, ScrollText, FileBarChart, Bot, User,
   Target, Filter, Mail, Network, Search, Plus, Send, Loader2,
   ChevronLeft, ChevronRight, Check, X, Sparkles, TrendingUp,
-  MessageSquare
+  MessageSquare, Clock
 } from 'lucide-react'
 import { POST_TEMPLATES, getIndustries } from '@/lib/templates'
 
@@ -27,13 +27,16 @@ export function CalendarTab() {
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [selectedPost, setSelectedPost] = useState<any | null>(null)
 
-  useEffect(() => {
+  const load = () => {
     fetch('/api/proposals')
       .then(r => r.json())
       .then(d => { if (d.success) setPosts(d.data) })
       .finally(() => setLoading(false))
-  }, [])
+  }
+  useEffect(() => { load() }, [])
 
   const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate()
   const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay()
@@ -45,6 +48,40 @@ export function CalendarTab() {
       const postDate = p.publishedAt || p.scheduledFor || p.createdAt
       return new Date(postDate).toISOString().split('T')[0] === dateStr
     })
+  }
+
+  const handleSchedulePost = async (postId: string, dateStr: string) => {
+    try {
+      const res = await fetch('/api/proposals', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: postId, scheduledFor: dateStr + 'T09:00:00.000Z' }),
+      })
+      const d = await res.json()
+      if (!d.success) throw new Error(d.error)
+      toast.success('Post planifié !')
+      setSelectedPost(null)
+      load()
+    } catch (err: any) {
+      toast.error(err.message)
+    }
+  }
+
+  const handleUnschedulePost = async (postId: string) => {
+    try {
+      const res = await fetch('/api/proposals', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: postId, scheduledFor: null }),
+      })
+      const d = await res.json()
+      if (!d.success) throw new Error(d.error)
+      toast.success('Planification retirée')
+      setSelectedPost(null)
+      load()
+    } catch (err: any) {
+      toast.error(err.message)
+    }
   }
 
   if (loading) return <Skeleton className="h-96 w-full" />
@@ -59,7 +96,7 @@ export function CalendarTab() {
             <Calendar className="h-7 w-7 text-emerald-600" />
             Calendrier
           </h1>
-          <p className="text-slate-500 mt-1">Planifiez et visualisez vos publications</p>
+          <p className="text-slate-500 mt-1">Cliquez sur un jour pour planifier un post</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}>
@@ -87,17 +124,28 @@ export function CalendarTab() {
               const day = i + 1
               const dayPosts = getPostsForDay(day)
               const isToday = new Date().toDateString() === new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).toDateString()
+              const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+              const isPast = new Date(dateStr) < new Date(new Date().toDateString())
               return (
-                <div key={day} className={`aspect-square border rounded-lg p-1 overflow-hidden ${isToday ? 'border-emerald-400 bg-emerald-50' : 'border-slate-100'}`}>
+                <div
+                  key={day}
+                  onClick={() => !isPast && setSelectedDay(dateStr)}
+                  className={`aspect-square border rounded-lg p-1 overflow-hidden transition-colors ${
+                    isToday ? 'border-emerald-400 bg-emerald-50' : 'border-slate-100'
+                  } ${!isPast ? 'cursor-pointer hover:border-emerald-300 hover:bg-emerald-50/40' : 'opacity-50'}`}
+                >
                   <p className={`text-xs ${isToday ? 'font-bold text-emerald-600' : 'text-slate-400'}`}>{day}</p>
                   <div className="space-y-0.5 mt-0.5">
                     {dayPosts.slice(0, 2).map(p => (
-                      <div key={p.id} className={`text-[9px] px-1 py-0.5 rounded truncate ${
-                        p.status === 'published' ? 'bg-emerald-100 text-emerald-700' :
-                        p.status === 'failed' ? 'bg-red-100 text-red-700' :
-                        p.status === 'approved' ? 'bg-blue-100 text-blue-700' :
-                        'bg-slate-100 text-slate-500'
-                      }`}>
+                      <div
+                        key={p.id}
+                        onClick={(e) => { e.stopPropagation(); setSelectedPost(p) }}
+                        className={`text-[9px] px-1 py-0.5 rounded truncate cursor-pointer hover:opacity-80 ${
+                          p.status === 'published' ? 'bg-emerald-100 text-emerald-700' :
+                          p.status === 'failed' ? 'bg-red-100 text-red-700' :
+                          p.status === 'approved' ? 'bg-blue-100 text-blue-700' :
+                          'bg-slate-100 text-slate-500'
+                        }`}>
                         {p.title}
                       </div>
                     ))}
@@ -109,6 +157,85 @@ export function CalendarTab() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Day picker modal — schedule a post on the selected day */}
+      {selectedDay && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setSelectedDay(null)}>
+          <Card className="max-w-md w-full" onClick={e => e.stopPropagation()}>
+            <CardHeader>
+              <CardTitle className="text-base">Planifier un post le {new Date(selectedDay).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {posts.filter(p => p.status === 'approved' || p.status === 'pending').length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-4">Aucun post à planifier. Générez ou approuvez des posts d'abord.</p>
+              ) : (
+                <>
+                  <p className="text-xs text-slate-500">Sélectionnez un post à planifier :</p>
+                  <div className="space-y-1 max-h-60 overflow-y-auto">
+                    {posts.filter(p => p.status === 'approved' || p.status === 'pending').map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => handleSchedulePost(p.id, selectedDay)}
+                        className="w-full text-left p-2 rounded-lg border border-slate-100 hover:border-emerald-300 hover:bg-emerald-50/40 transition-colors"
+                      >
+                        <p className="text-sm font-medium text-slate-900 truncate">{p.title}</p>
+                        <p className="text-xs text-slate-500 truncate">{p.content.slice(0, 80)}...</p>
+                        <Badge variant="outline" className="text-[9px] mt-1">{p.status}</Badge>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              <Button variant="outline" className="w-full" onClick={() => setSelectedDay(null)}>Fermer</Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Post detail modal — view/schedule/unschedule */}
+      {selectedPost && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setSelectedPost(null)}>
+          <Card className="max-w-lg w-full" onClick={e => e.stopPropagation()}>
+            <CardHeader>
+              <CardTitle className="text-base">{selectedPost.title}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="text-sm text-slate-600 whitespace-pre-wrap max-h-48 overflow-y-auto bg-slate-50 p-3 rounded-lg">
+                {selectedPost.content}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="outline" className={`text-xs capitalize ${
+                  selectedPost.status === 'published' ? 'bg-emerald-100 text-emerald-700' :
+                  selectedPost.status === 'failed' ? 'bg-red-100 text-red-700' :
+                  selectedPost.status === 'approved' ? 'bg-blue-100 text-blue-700' :
+                  'bg-slate-100 text-slate-500'
+                }`}>{selectedPost.status}</Badge>
+                {selectedPost.scheduledFor && (
+                  <Badge variant="outline" className="text-xs">
+                    <Clock className="h-3 w-3 mr-1" />
+                    Planifié: {new Date(selectedPost.scheduledFor).toLocaleString('fr-FR')}
+                  </Badge>
+                )}
+                {selectedPost.publishedAt && (
+                  <Badge variant="outline" className="text-xs">
+                    Publié: {new Date(selectedPost.publishedAt).toLocaleString('fr-FR')}
+                  </Badge>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {selectedPost.scheduledFor && (
+                  <Button variant="outline" size="sm" onClick={() => handleUnschedulePost(selectedPost.id)}>
+                    Retirer la planification
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={() => { setSelectedPost(null); setSelectedDay(null) }}>
+                  Fermer
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
@@ -443,7 +570,11 @@ export function ProfileTab() {
       })
       const d = await res.json()
       if (!d.success) throw new Error(d.error)
+      if (!d.data.content || !d.data.content.trim()) {
+        throw new Error('L\'IA a retourné une réponse vide. Réessayez.')
+      }
       setAnalysis(d.data.content)
+      toast.success('Analyse générée !')
     } catch (err: any) {
       toast.error(err.message)
     } finally {
