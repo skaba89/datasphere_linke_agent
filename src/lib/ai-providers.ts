@@ -2,11 +2,14 @@
 // Multi-AI Provider - Support de plusieurs LLMs
 //
 // Providers supportés (par ordre de priorité) :
-//   1. GEMINI_API_KEY    → Google Gemini (gemini-1.5-flash)
-//   2. GLM_API_KEY       → Z.ai GLM (glm-4-flash)
+//   1. GEMINI_API_KEY    → Google Gemini
+//   2. GLM_API_KEY       → Z.ai GLM (glm-4-flash, via open.bigmodel.cn)
 //   3. GROQ_API_KEY      → Groq (llama-3.1-70b-versatile)
 //   4. OPENROUTER_API_KEY → OpenRouter (multi-modèles)
-//   5. (fallback) z-ai-web-dev-sdk (SDK embarqué)
+//   5. ZAI_API_KEY       → Z.ai (chat.z.ai, natif HTTP, toujours dispo en fallback)
+//
+// ⭐ Fallback chain : si un provider échoue, le suivant est essayé.
+//   Le provider Z.ai (chat.z.ai) est toujours essayé en dernier recours.
 //
 // Usage :
 //   import { generateChat } from '@/lib/ai-providers'
@@ -33,7 +36,8 @@ export function getActiveProvider(): string | null {
   if (process.env.GLM_API_KEY) return 'glm'
   if (process.env.GROQ_API_KEY) return 'groq'
   if (process.env.OPENROUTER_API_KEY) return 'openrouter'
-  return null // fallback z-ai-web-dev-sdk
+  if (process.env.ZAI_API_KEY || process.env.GLM_API_KEY) return 'zai'
+  return null
 }
 
 // ============================================================
@@ -278,20 +282,50 @@ async function callOpenRouter(params: ChatParams): Promise<ChatResult> {
 }
 
 // ============================================================
-// Provider fallback : z-ai-web-dev-sdk
+// Provider 5 : Z.ai (chat.z.ai) — natif HTTP, compatible OpenAI
+// API: https://api.z.ai/api/paas/v4/chat/completions
+// Modèles: glm-4-flash, glm-4-plus, glm-4-long
+// ⭐ Toujours disponible comme fallback (utilise ZAI_API_KEY ou
+//    GLM_API_KEY si ZAI_API_KEY n'est pas défini)
 // ============================================================
 async function callZAI(params: ChatParams): Promise<ChatResult> {
-  const ZAI = (await import('z-ai-web-dev-sdk')).default
-  const zai = await ZAI.create()
-  const completion = await zai.chat.completions.create({
-    messages: [
-      { role: 'assistant', content: params.system },
-      { role: 'user', content: params.user },
-    ],
-    thinking: { type: 'disabled' },
+  // ZAI_API_KEY ou fallback sur GLM_API_KEY (même provider, endpoints différents)
+  const apiKey = process.env.ZAI_API_KEY || process.env.GLM_API_KEY
+  if (!apiKey) {
+    throw new Error('ZAI_API_KEY (ou GLM_API_KEY) non configuré')
+  }
+
+  const model = process.env.ZAI_MODEL || 'glm-4-flash'
+  const apiUrl = process.env.ZAI_API_URL || 'https://api.z.ai/api/paas/v4/chat/completions'
+
+  const res = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: params.system },
+        { role: 'user', content: params.user },
+      ],
+      temperature: params.temperature ?? 0.7,
+      max_tokens: params.maxTokens ?? 2000,
+    }),
   })
-  const content = completion.choices[0]?.message?.content || ''
-  return { content, provider: 'zai-sdk' }
+
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Z.ai API error ${res.status}: ${err}`)
+  }
+
+  const data = await res.json()
+  const content = data.choices?.[0]?.message?.content || ''
+  if (!content) {
+    throw new Error('Z.ai: réponse vide')
+  }
+  return { content, provider: 'zai' }
 }
 
 // ============================================================
@@ -307,8 +341,10 @@ export async function generateChat(params: ChatParams): Promise<ChatResult> {
   if (process.env.GLM_API_KEY) providers.push({ name: 'glm', fn: callGLM })
   if (process.env.GROQ_API_KEY) providers.push({ name: 'groq', fn: callGroq })
   if (process.env.OPENROUTER_API_KEY) providers.push({ name: 'openrouter', fn: callOpenRouter })
-  // z-ai-sdk est toujours disponible (fallback)
-  providers.push({ name: 'zai-sdk', fn: callZAI })
+  // Z.ai (chat.z.ai) natif — toujours disponible si ZAI_API_KEY ou GLM_API_KEY est défini
+  if (process.env.ZAI_API_KEY || process.env.GLM_API_KEY) {
+    providers.push({ name: 'zai', fn: callZAI })
+  }
 
   if (providers.length === 0) {
     throw new Error('Aucun provider IA configuré. Définissez au moins GEMINI_API_KEY.')
@@ -340,7 +376,7 @@ export function getAvailableProviders(): string[] {
   if (process.env.GLM_API_KEY) providers.push('glm')
   if (process.env.GROQ_API_KEY) providers.push('groq')
   if (process.env.OPENROUTER_API_KEY) providers.push('openrouter')
-  providers.push('zai-sdk') // toujours disponible (fallback)
+  if (process.env.ZAI_API_KEY || process.env.GLM_API_KEY) providers.push('zai')
   return providers
 }
 
@@ -370,8 +406,10 @@ export async function compareProviders(params: ChatParams): Promise<ComparisonRe
   if (process.env.OPENROUTER_API_KEY) {
     tasks.push(runTimed('openrouter', () => callOpenRouter(params)))
   }
-  // Always include z-ai-sdk
-  tasks.push(runTimed('zai-sdk', () => callZAI(params)))
+  // Include Z.ai (chat.z.ai) if configured
+  if (process.env.ZAI_API_KEY || process.env.GLM_API_KEY) {
+    tasks.push(runTimed('zai', () => callZAI(params)))
+  }
 
   return Promise.all(tasks)
 }

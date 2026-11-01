@@ -561,7 +561,8 @@ const PROVIDER_META: Record<string, { label: string; color: string; bg: string; 
   glm: { label: 'GLM (Z.ai)', color: 'text-purple-600', bg: 'bg-purple-50 border-purple-200', emoji: '🟣' },
   groq: { label: 'Groq (Llama)', color: 'text-orange-600', bg: 'bg-orange-50 border-orange-200', emoji: '🟠' },
   openrouter: { label: 'OpenRouter', color: 'text-pink-600', bg: 'bg-pink-50 border-pink-200', emoji: '🩷' },
-  'zai-sdk': { label: 'z-ai SDK', color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200', emoji: '🟢' },
+  'zai': { label: 'Z.ai', color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200', emoji: '🟢' },
+  'zai-sdk': { label: 'Z.ai', color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200', emoji: '🟢' },
 }
 
 export function MultiAICompareTab() {
