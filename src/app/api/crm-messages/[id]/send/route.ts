@@ -39,11 +39,17 @@ export async function POST(
       data: { status: 'sent', sentAt: new Date() },
     })
 
-    // Update prospect stage (new → contacted)
-    await db.prospect.update({
+    // Update prospect stage (only regress from 'new' to 'contacted', B9 fix)
+    const prospect = await db.prospect.findUnique({
       where: { id: message.prospectId },
-      data: { stage: 'contacted' },
+      select: { id: true, stage: true },
     })
+    if (prospect && prospect.stage === 'new') {
+      await db.prospect.update({
+        where: { id: message.prospectId },
+        data: { stage: 'contacted' },
+      })
+    }
 
     logger.info({ userId, messageId: id, prospectId: message.prospectId }, 'CRM message marked as sent')
 

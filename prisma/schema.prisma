@@ -138,15 +138,19 @@ model Prospect {
   stage       String   @default("new") // new | contacted | replied | meeting | won | lost
   notes       String?
   tags        String?  // comma-separated
+  score       Float    @default(0) // 0-100, calculé par le scoring job
+  scoredAt    DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages    CrmMessage[]
   revenueAttributions RevenueAttribution[] @relation("ProspectRevenue")
+  agentTasks  AgentTask[]
 
   @@index([userId])
   @@index([stage])
+  @@index([userId, score])
   @@index([company])
 }
 
@@ -407,15 +411,18 @@ model AgentTask {
   input       String?   // JSON string with task parameters
   output      String?   // JSON string with task result
   agentNotes  String?
+  prospectId  String?   // lien optionnel vers un Prospect (tâche de suivi/relance)
   dueAt       DateTime?
   completedAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   user        User      @relation("UserAgentTasks", fields: [userId], references: [id], onDelete: Cascade)
+  prospect    Prospect? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([status])
+  @@index([prospectId])
   @@index([dueAt])
 }
 
