@@ -627,13 +627,6 @@ model PostProposal {
   publishedAt    DateTime?
   errorMessage   String? // last error message when publish fails
   lastPublishAttemptAt DateTime? // timestamp of the last publish attempt
-  // Per-post real engagement metrics (synced from LinkedIn API)
-  likes          Int      @default(0)
-  commentsCount  Int      @default(0)
-  shares         Int      @default(0)
-  views          Int      @default(0)
-  clicks         Int      @default(0)
-  lastSyncedAt   DateTime? // last time engagement metrics were synced
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
