@@ -37,6 +37,8 @@ import { CalendarTab, TemplatesTab, LogsTab, ReportsTab, AgentIATab, ProfileTab,
 import { CommentsTab } from '@/components/comments-tab'
 import { ScoutTab } from '@/components/scout-tab'
 import { BrandStudioTab, ContentQualityTab, MultiAICompareTab } from '@/components/brand-studio-tabs'
+import { PerformanceIntelligenceTab } from '@/components/performance-intelligence-tab'
+import { AgencyCommandCenterTab } from '@/components/agency-command-center-tab'
 import { toast } from 'sonner'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -305,6 +307,7 @@ export default function Home() {
         { id: 'comments', label: 'Commentaires', icon: MessageCircle },
         { id: 'messages', label: 'Messages', icon: MessageSquare },
         { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+        { id: 'performance', label: 'Performance IA', icon: Activity },
       ],
     },
     {
@@ -337,6 +340,7 @@ export default function Home() {
     {
       title: 'Gestion',
       items: [
+        { id: 'agency-cc', label: 'Agency Command', icon: Layers },
         { id: 'logs', label: 'Logs', icon: ScrollText },
         { id: 'reports', label: 'Rapports', icon: FileBarChart },
         { id: 'settings', label: 'Paramètres', icon: Settings },
@@ -441,6 +445,16 @@ export default function Home() {
             {activeTab === 'analytics' && (
               <motion.div key="analytics" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
                 <AnalyticsTab metrics={metrics} />
+              </motion.div>
+            )}
+            {activeTab === 'performance' && (
+              <motion.div key="performance" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <PerformanceIntelligenceTab />
+              </motion.div>
+            )}
+            {activeTab === 'agency-cc' && (
+              <motion.div key="agency-cc" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <AgencyCommandCenterTab />
               </motion.div>
             )}
             {activeTab === 'settings' && (
@@ -1331,6 +1345,8 @@ function PlaceholderTab({ tabId }: { tabId: string }) {
     'brand-studio': { title: 'Personal Brand Studio', description: 'Analysez votre voix éditoriale et créez votre marque personnelle', icon: Wand2 },
     'content-quality': { title: 'Content Quality Studio', description: 'Scorez vos posts et obtenez des suggestions d\'amélioration', icon: Gauge },
     'ai-compare': { title: 'Multi-IA Comparison', description: 'Comparez les réponses de tous les providers IA en parallèle', icon: Cpu },
+    'performance': { title: 'Performance Intelligence', description: 'Analytics avancés + recommandations IA personnalisées', icon: Activity },
+    'agency-cc': { title: 'Agency Command Center', description: 'Vue stratégique multi-clients avec KPIs, alertes et tendances', icon: Layers },
     'templates-ia': { title: 'Templates IA', description: 'Bibliothèque de templates de posts par industrie', icon: FileCode },
     'logs': { title: 'Logs', description: 'Historique des actions et erreurs', icon: ScrollText },
     'reports': { title: 'Rapports', description: 'Rapports de performance détaillés', icon: FileBarChart },

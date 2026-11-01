@@ -45,19 +45,20 @@
 | Module | Implémenté | Manquant |
 |---|---|---|
 | CRM Séquences | Création, liste, génération auto (cron), envoi manuel | Envoi 100% automatique (opt-in) |
-| Teams | Invitation, accept, liste | Permissions par client, isolation données |
-| Analytics | Graphiques, 14j de données | Métriques réelles LinkedIn (limité par API) |
+| Teams | Invitation, accept, liste, **permissions par client (view/edit/manage)**, accessible-clients | Audit log des actions |
+| Analytics | Graphiques, 14j de données, **Performance Intelligence (KPIs 14/30/90j + reco IA)** | Métriques temps réel (limité par API LinkedIn) |
 | Automation | Comment replies, CRM sequences | Source de commentaires (Chrome ext ou webhook) |
 | Multi-IA | 5 providers (Gemini/GLM/Groq/OpenRouter/z-ai), comparaison parallèle, fallback | Sélection manuelle du provider actif |
 | Networking | Stats, liste prospects | Import CSV spécifique (au pipeline networking) |
+| Agency | Dashboard multi-clients, **Agency Command Center (KPIs + alertes + top/retard)** | Attribution revenue par client |
 
 ### ❌ NON FONCTIONNEL / ABSENT
 
 | Module | Statut | Priorité |
 |---|---|---|
-| LinkedIn Performance Intelligence | Partiel (analytics basique) | P3 |
+| LinkedIn Performance Intelligence | ✅ Implémenté (P3-2) | Done |
 | AI CRM Copilot | Partiel (Agent IA) | P3 |
-| Agency Command Center | Partiel (dashboard + clients) | P3 |
+| Agency Command Center | ✅ Implémenté (P3-2) | Done |
 | Revenue Attribution Studio | Absent | P4 |
 | AI Agent Workspace | Absent | P4 |
 | MCP Server | Absent | P4 |
@@ -75,6 +76,9 @@
 | Multi-IA Comparison | `/api/ai/compare` | Multi-IA Compare tab | ✅ UI + API + plan gate (Pro+) |
 | CRM CSV Import/Export | `/api/prospects/import` (POST + GET) | Prospecting tab | ✅ UI + API + déduplication |
 | CRM Messages send-draft | `/api/crm-messages/[id]/send` | Messages tab | ✅ UI + API |
+| **Teams Permissions granulaires** | `/api/teams/assignments`, `/api/teams/accessible-clients` | /team page | ✅ UI + API + migration DB |
+| **Performance Intelligence** | `/api/performance-intelligence` (GET + POST) | Performance IA tab | ✅ UI + API + reco IA (Pro+) |
+| **Agency Command Center** | `/api/agency-command-center` | Agency Command tab | ✅ UI + API + plan gate (Business+) |
 
 ## Dépendances externes
 

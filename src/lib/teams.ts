@@ -288,3 +288,196 @@ export async function getUserTeam(userId: string) {
   })
   return membership?.team || null
 }
+
+// ============================================================
+// CLIENT ASSIGNMENTS — permissions granulaires par client
+// ============================================================
+// Niveaux de permission :
+//   view   — voir les posts/CRM du client (read-only)
+//   edit   — créer/modifier posts + CRM, mais pas publier
+//   manage — tout, y compris publication et suppression
+// Les owners/admins de la team ont automatiquement "manage" sur tous les clients.
+
+export type ClientPermission = 'view' | 'edit' | 'manage'
+
+export interface ClientAssignmentWithDetails {
+  id: string
+  clientId: string
+  clientName: string
+  teamMemberId: string
+  memberEmail: string
+  memberName: string | null
+  permission: ClientPermission
+  assignedAt: Date
+}
+
+// Récupérer toutes les assignments d'une team (via les clients du owner)
+export async function listClientAssignments(ownerUserId: string): Promise<ClientAssignmentWithDetails[]> {
+  const assignments = await db.clientAssignment.findMany({
+    where: { client: { userId: ownerUserId } },
+    include: {
+      client: { select: { id: true, name: true } },
+      teamMember: { include: { user: { select: { id: true, email: true, name: true } } } },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+  return assignments.map(a => ({
+    id: a.id,
+    clientId: a.clientId,
+    clientName: a.client.name,
+    teamMemberId: a.teamMemberId,
+    memberEmail: a.teamMember.user.email,
+    memberName: a.teamMember.user.name,
+    permission: a.permission as ClientPermission,
+    assignedAt: a.createdAt,
+  }))
+}
+
+// Assigner un client à un membre de la team
+export async function assignClientToMember(params: {
+  ownerUserId: string
+  clientId: string
+  teamMemberId: string
+  permission: ClientPermission
+}): Promise<{ id: string; isNew: boolean }> {
+  const { ownerUserId, clientId, teamMemberId, permission } = params
+
+  // Verify the client belongs to the owner
+  const client = await db.client.findFirst({ where: { id: clientId, userId: ownerUserId } })
+  if (!client) throw new Error('Client introuvable ou non autorisé')
+
+  // Verify the team member belongs to a team owned by the owner
+  const member = await db.teamMember.findFirst({
+    where: { id: teamMemberId },
+    include: { team: true },
+  })
+  if (!member || member.team.ownerId !== ownerUserId) {
+    throw new Error('Membre introuvable ou non autorisé')
+  }
+
+  // Upsert assignment
+  const existing = await db.clientAssignment.findUnique({
+    where: { clientId_teamMemberId: { clientId, teamMemberId } },
+  })
+  if (existing) {
+    const updated = await db.clientAssignment.update({
+      where: { id: existing.id },
+      data: { permission, assignedById: ownerUserId },
+    })
+    return { id: updated.id, isNew: false }
+  }
+  const created = await db.clientAssignment.create({
+    data: { clientId, teamMemberId, permission, assignedById: ownerUserId },
+  })
+  return { id: created.id, isNew: true }
+}
+
+// Retirer une assignation
+export async function removeClientAssignment(ownerUserId: string, assignmentId: string): Promise<void> {
+  const assignment = await db.clientAssignment.findUnique({
+    where: { id: assignmentId },
+    include: { client: { select: { userId: true } } },
+  })
+  if (!assignment) throw new Error('Assignation introuvable')
+  if (assignment.client.userId !== ownerUserId) throw new Error('Non autorisé')
+  await db.clientAssignment.delete({ where: { id: assignmentId } })
+}
+
+// Vérifier la permission d'un user sur un client donné
+// Retourne la permission effectivement applicable (ou null si aucun accès)
+export async function getUserClientPermission(
+  userId: string,
+  clientId: string
+): Promise<ClientPermission | null> {
+  const client = await db.client.findUnique({
+    where: { id: clientId },
+    select: { userId: true },
+  })
+  if (!client) return null
+
+  // Owner du client → manage
+  if (client.userId === userId) return 'manage'
+
+  // Chercher la membership team du user et l'assignment correspondant
+  const membership = await db.teamMember.findFirst({
+    where: { userId },
+    include: { team: true },
+  })
+  if (!membership) return null
+
+  // Owner/admin de la team qui possède le client → manage
+  if (membership.role === 'owner' || membership.role === 'admin') {
+    // S'assurer que la team du user est bien celle du client (via owner)
+    if (membership.team.ownerId === client.userId) return 'manage'
+  }
+
+  // Sinon, chercher une assignment explicite
+  const assignment = await db.clientAssignment.findUnique({
+    where: { clientId_teamMemberId: { clientId, teamMemberId: membership.id } },
+  })
+  return (assignment?.permission as ClientPermission) || null
+}
+
+// Lister les clients accessibles par un user (propriétaire + assignés)
+export async function listAccessibleClients(userId: string): Promise<Array<{
+  id: string
+  name: string
+  color: string
+  active: boolean
+  permission: ClientPermission
+  assignedViaTeamMemberId?: string
+}>> {
+  // 1. Clients possédés
+  const owned = await db.client.findMany({
+    where: { userId },
+    select: { id: true, name: true, color: true, active: true },
+  })
+  const result: Array<{
+    id: string
+    name: string
+    color: string
+    active: boolean
+    permission: ClientPermission
+    assignedViaTeamMemberId?: string
+  }> = owned.map(c => ({ ...c, permission: 'manage' as ClientPermission }))
+
+  // 2. Clients assignés via team membership
+  const membership = await db.teamMember.findFirst({
+    where: { userId },
+    select: { id: true, role: true, team: { select: { ownerId: true } } },
+  })
+  if (membership) {
+    // Owner/admin → tous les clients du team owner
+    if (membership.role === 'owner' || membership.role === 'admin') {
+      const teamClients = await db.client.findMany({
+        where: { userId: membership.team.ownerId },
+        select: { id: true, name: true, color: true, active: true },
+      })
+      for (const c of teamClients) {
+        if (!result.find(r => r.id === c.id)) {
+          result.push({ ...c, permission: 'manage' })
+        }
+      }
+    } else {
+      // Membre simple → seulement les clients assignés explicitement
+      const assignments = await db.clientAssignment.findMany({
+        where: { teamMemberId: membership.id },
+        include: { client: { select: { id: true, name: true, color: true, active: true } } },
+      })
+      for (const a of assignments) {
+        if (!result.find(r => r.id === a.client.id)) {
+          result.push({
+            id: a.client.id,
+            name: a.client.name,
+            color: a.client.color,
+            active: a.client.active,
+            permission: a.permission as ClientPermission,
+            assignedViaTeamMemberId: membership.id,
+          })
+        }
+      }
+    }
+  }
+
+  return result
+}

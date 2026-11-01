@@ -11,7 +11,9 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
-import { Crown, UserPlus, Trash2, Mail, ArrowLeft, Users } from 'lucide-react'
+import {
+  Crown, UserPlus, Trash2, Mail, ArrowLeft, Users, FolderKanban, Shield,
+} from 'lucide-react'
 
 interface Member {
   id: string
@@ -40,6 +42,36 @@ interface Team {
   pendingInvitations: Invitation[]
 }
 
+interface ClientItem {
+  id: string
+  name: string
+  color: string
+  active: boolean
+}
+
+interface Assignment {
+  id: string
+  clientId: string
+  clientName: string
+  teamMemberId: string
+  memberEmail: string
+  memberName: string | null
+  permission: 'view' | 'edit' | 'manage'
+  assignedAt: string
+}
+
+const PERMISSION_LABELS: Record<string, string> = {
+  view: 'Voir',
+  edit: 'Éditer',
+  manage: 'Gérer',
+}
+
+const PERMISSION_COLORS: Record<string, string> = {
+  view: 'bg-slate-100 text-slate-700',
+  edit: 'bg-blue-100 text-blue-700',
+  manage: 'bg-emerald-100 text-emerald-700',
+}
+
 export default function TeamPage() {
   const router = useRouter()
   const [team, setTeam] = useState<Team | null>(null)
@@ -47,6 +79,16 @@ export default function TeamPage() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<'member' | 'admin'>('member')
   const [inviting, setInviting] = useState(false)
+
+  // Client assignments state
+  const [assignments, setAssignments] = useState<Assignment[]>([])
+  const [clients, setClients] = useState<ClientItem[]>([])
+  const [assignmentForm, setAssignmentForm] = useState<{ clientId: string; teamMemberId: string; permission: 'view' | 'edit' | 'manage' }>({
+    clientId: '',
+    teamMemberId: '',
+    permission: 'view',
+  })
+  const [assigning, setAssigning] = useState(false)
 
   const loadTeam = async () => {
     try {
@@ -64,8 +106,24 @@ export default function TeamPage() {
     }
   }
 
+  const loadAssignments = async () => {
+    try {
+      const [assignRes, clientsRes] = await Promise.all([
+        fetch('/api/teams/assignments'),
+        fetch('/api/clients'),
+      ])
+      const aData = await assignRes.json()
+      const cData = await clientsRes.json()
+      if (aData.success) setAssignments(aData.data)
+      if (cData.success) setClients(cData.data)
+    } catch (err: any) {
+      // silent
+    }
+  }
+
   useEffect(() => {
     loadTeam()
+    loadAssignments()
   }, [])
 
   const handleInvite = async (e: React.FormEvent) => {
@@ -97,6 +155,7 @@ export default function TeamPage() {
       if (!data.success) throw new Error(data.error)
       toast.success('Membre retiré')
       await loadTeam()
+      await loadAssignments()
     } catch (err: any) {
       toast.error(err.message)
     }
@@ -110,6 +169,44 @@ export default function TeamPage() {
       if (!data.success) throw new Error(data.error)
       toast.success('Invitation annulée')
       await loadTeam()
+    } catch (err: any) {
+      toast.error(err.message)
+    }
+  }
+
+  const handleAssign = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!assignmentForm.clientId || !assignmentForm.teamMemberId) {
+      toast.error('Sélectionnez un client et un membre')
+      return
+    }
+    setAssigning(true)
+    try {
+      const res = await fetch('/api/teams/assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(assignmentForm),
+      })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error)
+      toast.success(data.data.isNew ? 'Assignation créée' : 'Permission mise à jour')
+      setAssignmentForm({ clientId: '', teamMemberId: '', permission: 'view' })
+      await loadAssignments()
+    } catch (err: any) {
+      toast.error(err.message)
+    } finally {
+      setAssigning(false)
+    }
+  }
+
+  const handleRemoveAssignment = async (assignmentId: string, memberEmail: string, clientName: string) => {
+    if (!confirm(`Retirer l'accès de ${memberEmail} au client "${clientName}" ?`)) return
+    try {
+      const res = await fetch(`/api/teams/assignments?id=${assignmentId}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error)
+      toast.success('Accès retiré')
+      await loadAssignments()
     } catch (err: any) {
       toast.error(err.message)
     }
@@ -159,9 +256,7 @@ export default function TeamPage() {
     )
   }
 
-  const isOwnerOrAdmin = team.members.find(
-    (m) => m.userId === team.ownerId || m.role === 'admin'
-  )
+  const nonOwnerMembers = team.members.filter((m) => m.role !== 'owner')
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -231,6 +326,115 @@ export default function TeamPage() {
                     )}
                   </div>
                 ))}
+              </CardContent>
+            </Card>
+
+            {/* Client assignments */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FolderKanban className="h-5 w-5 text-purple-600" />
+                  Permissions par client
+                </CardTitle>
+                <CardDescription>
+                  Assignez des clients spécifiques aux membres avec permissions granulaires.
+                  Les owners/admins ont automatiquement accès à tous les clients.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Existing assignments */}
+                {assignments.length === 0 ? (
+                  <p className="text-sm text-slate-500 text-center py-4">
+                    Aucune assignation. Les owners/admins ont déjà accès à tous les clients.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {assignments.map((a) => (
+                      <div key={a.id} className="flex items-center gap-3 p-2 rounded-lg border border-slate-100 bg-slate-50/50">
+                        <Shield className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-900 truncate">
+                            {a.memberName || a.memberEmail} → {a.clientName}
+                          </p>
+                          <p className="text-xs text-slate-500 truncate">{a.memberEmail}</p>
+                        </div>
+                        <Badge variant="outline" className={`text-xs ${PERMISSION_COLORS[a.permission]}`}>
+                          {PERMISSION_LABELS[a.permission]}
+                        </Badge>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-red-500 hover:bg-red-50"
+                          onClick={() => handleRemoveAssignment(a.id, a.memberEmail, a.clientName)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <Separator />
+
+                {/* New assignment form */}
+                {nonOwnerMembers.length === 0 ? (
+                  <p className="text-xs text-slate-500 text-center py-2">
+                    Invitez d'abord un membre pour lui assigner des clients.
+                  </p>
+                ) : clients.length === 0 ? (
+                  <p className="text-xs text-slate-500 text-center py-2">
+                    Ajoutez d'abord des clients depuis le dashboard.
+                  </p>
+                ) : (
+                  <form onSubmit={handleAssign} className="space-y-3">
+                    <div className="grid grid-cols-1 gap-2">
+                      <Label htmlFor="client" className="text-xs">Client</Label>
+                      <select
+                        id="client"
+                        value={assignmentForm.clientId}
+                        onChange={(e) => setAssignmentForm({ ...assignmentForm, clientId: e.target.value })}
+                        className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm"
+                        required
+                      >
+                        <option value="">— Sélectionner —</option>
+                        {clients.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                      <Label htmlFor="member" className="text-xs">Membre</Label>
+                      <select
+                        id="member"
+                        value={assignmentForm.teamMemberId}
+                        onChange={(e) => setAssignmentForm({ ...assignmentForm, teamMemberId: e.target.value })}
+                        className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm"
+                        required
+                      >
+                        <option value="">— Sélectionner —</option>
+                        {nonOwnerMembers.map((m) => (
+                          <option key={m.id} value={m.id}>{m.user.name || m.user.email}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                      <Label htmlFor="perm" className="text-xs">Permission</Label>
+                      <select
+                        id="perm"
+                        value={assignmentForm.permission}
+                        onChange={(e) => setAssignmentForm({ ...assignmentForm, permission: e.target.value as 'view' | 'edit' | 'manage' })}
+                        className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm"
+                      >
+                        <option value="view">Voir (lecture seule)</option>
+                        <option value="edit">Éditer (créer/modifier, pas publier)</option>
+                        <option value="manage">Gérer (tout, y compris publier)</option>
+                      </select>
+                    </div>
+                    <Button type="submit" disabled={assigning} className="w-full" size="sm">
+                      {assigning ? 'Assignation...' : 'Assigner'}
+                    </Button>
+                  </form>
+                )}
               </CardContent>
             </Card>
 
@@ -329,6 +533,7 @@ export default function TeamPage() {
                 <p>2. S'il n'a pas de compte, il devra s'inscrire avec le même email.</p>
                 <p>3. Une fois acceptée, il a accès aux comptes LinkedIn partagés de l'équipe.</p>
                 <p>4. Les owners/admins peuvent retirer des membres à tout moment.</p>
+                <p>5. <strong>Permissions par client</strong> : allez dans la section dédiée pour restreindre l'accès d'un membre à certains clients seulement.</p>
               </CardContent>
             </Card>
           </div>

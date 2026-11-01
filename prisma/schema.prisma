@@ -47,6 +47,7 @@ model User {
   teamInvitations  TeamInvitation[] @relation("InvitedUser")
   sentInvitations  TeamInvitation[] @relation("InvitedBy")
   ownedTeams       Team[]           @relation("TeamOwner")
+  assignedByAssignments ClientAssignment[] @relation("AssignedBy")
 
   // API publique (Plan Business)
   apiKeys          ApiKey[]
@@ -101,6 +102,7 @@ model Client {
 
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   posts           PostProposal[] @relation("ClientPosts")
+  assignments     ClientAssignment[]
 
   @@index([userId])
   @@index([active])
@@ -324,9 +326,30 @@ model TeamMember {
 
   team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientAssignments ClientAssignment[]
 
   @@unique([teamId, userId])
   @@index([userId])
+}
+
+// ============================================================
+// CLIENT ASSIGNMENTS (Teams — permissions granulaires par client)
+// ============================================================
+model ClientAssignment {
+  id            String   @id @default(cuid())
+  clientId      String
+  teamMemberId  String
+  permission    String   @default("view") // view | edit | manage
+  assignedById  String
+  createdAt     DateTime @default(now())
+
+  client        Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  teamMember    TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+  assignedBy    User       @relation("AssignedBy", fields: [assignedById], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, teamMemberId])
+  @@index([clientId])
+  @@index([teamMemberId])
 }
 
 model TeamInvitation {
