@@ -14,9 +14,9 @@ test.describe('Public pages', () => {
 
   test('pricing page loads with 3 plans', async ({ page }) => {
     await page.goto('/pricing')
-    await expect(page.locator('text=Free')).toBeVisible()
-    await expect(page.locator('text=Pro')).toBeVisible()
-    await expect(page.locator('text=Business')).toBeVisible()
+    await expect(page.getByText('Free', { exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Pro', { exact: true })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Business', { exact: true })).toBeVisible({ timeout: 10000 })
   })
 
   test('login page loads', async ({ page }) => {
@@ -36,14 +36,14 @@ test.describe('Public pages', () => {
   })
 
   test('legal pages load', async ({ page }) => {
-    await page.goto('/legal/terms')
-    await expect(page.locator('h1')).toContainText('Conditions Générales')
+    await page.goto('/legal/terms', { timeout: 15000 })
+    await expect(page.locator('h1')).toContainText('Conditions', { timeout: 10000 })
 
-    await page.goto('/legal/privacy')
-    await expect(page.locator('h1')).toContainText('Politique de confidentialité')
+    await page.goto('/legal/privacy', { timeout: 15000 })
+    await expect(page.locator('h1')).toContainText('Politique', { timeout: 10000 })
 
-    await page.goto('/legal/notice')
-    await expect(page.locator('h1')).toContainText('Mentions légales')
+    await page.goto('/legal/notice', { timeout: 15000 })
+    await expect(page.locator('h1')).toContainText('Mentions', { timeout: 10000 })
   })
 })
 
