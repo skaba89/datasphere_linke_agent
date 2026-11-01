@@ -58,19 +58,19 @@ test.describe('Phase 5 — MCP Server + Chrome Extension endpoint', () => {
 
   test('mcp: POST with valid auth + initialize returns capabilities', async ({ request }) => {
     // Trial Pro user → API key creation requires Business plan
-    // So this test verifies the 403 (plan gate) behavior
+    // So this test verifies the 402 (plan gate) behavior
     // The actual MCP flow with a Business API key is tested manually
 
-    // First try to create an API key (will fail with 403 for Pro trial)
+    // First try to create an API key (will fail with 402 for Pro trial)
     const keyRes = await request.post('/api/api-keys', {
       headers: { Cookie: cookies },
       data: { name: 'Test MCP Key' },
     })
-    // Pro trial → 403 (Business required for API keys)
-    expect([403, 201]).toContain(keyRes.status())
+    // Pro trial → 402 (Payment Required, Business plan needed for API keys)
+    expect([402, 201]).toContain(keyRes.status())
 
     if (keyRes.status() !== 201) {
-      // Plan gate active (403) — skip the MCP flow test, just verify
+      // Plan gate active (402) — skip the MCP flow test, just verify
       // that without a valid API key the MCP endpoint returns 401
       const noKeyRes = await request.post('/api/mcp', {
         headers: { Authorization: 'Bearer dsk_live_fake' },
@@ -195,7 +195,7 @@ test.describe('Phase 5 — MCP Server + Chrome Extension endpoint', () => {
   })
 
   test('extension/comments: POST with empty array returns 400', async ({ request }) => {
-    // Need API key auth (Business plan). Trial Pro → 403 first
+    // Need API key auth (Business plan). Fake key → 401 first
     const res = await request.post('/api/extension/comments', {
       headers: { Authorization: 'Bearer dsk_live_fake' },
       data: { comments: [] },
