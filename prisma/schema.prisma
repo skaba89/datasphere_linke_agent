@@ -59,6 +59,10 @@ model User {
   agentTasks  AgentTask[]  @relation("UserAgentTasks")
   agentMemory AgentMemory[] @relation("UserAgentMemory")
 
+  // Hermes — agent d'automatisation
+  hermesConfig HermesConfig?
+  agentRuns    AgentRun[]   @relation("UserAgentRuns")
+
   // Audit Log (actions effectuées par cet user, typiquement admin)
   auditLogs   AuditLog[]   @relation("UserAuditLogs")
 
@@ -428,6 +432,54 @@ model AgentMemory {
 
   @@unique([userId, key])
   @@index([userId])
+}
+
+// ============================================================
+// HERMES — Agent d'automatisation autonome
+// ============================================================
+
+// Config par utilisateur (1:1 avec User)
+model HermesConfig {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  enabled         Boolean  @default(false)
+  scheduleCron    String   @default("0 9 * * *") // informatif (cron-job.org contrôle la cadence)
+  maxTasksPerRun  Int      @default(5)
+  workflowSteps   Json     // ["pending_tasks","generate_posts","analyze_prospects","token_check","quality_analysis","summarize"]
+  notifyOnDone    Boolean  @default(true)
+  notifyOnError   Boolean  @default(true)
+  lastRunAt       DateTime?
+  lastRunStatus   String?  // success | failed | partial
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([enabled])
+}
+
+// Historique des exécutions (append-only)
+model AgentRun {
+  id            String    @id @default(cuid())
+  userId        String
+  trigger       String    @default("cron") // cron | manual | api
+  status        String    @default("running") // running | success | failed | partial
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+  durationMs    Int?
+  stepsTotal    Int       @default(0)
+  stepsSuccess  Int       @default(0)
+  stepsFailed   Int       @default(0)
+  stepsJson     Json      // [{step, status, durationMs, output, error}]
+  summary       String?   // résumé lisible (généré par LLM)
+  totalsJson    Json?     // {tasksProcessed, postsGenerated, draftsAnalyzed, ...}
+  error         String?
+  createdAt     DateTime  @default(now())
+
+  user          User      @relation("UserAgentRuns", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status])
 }
 
 // ============================================================
