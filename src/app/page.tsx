@@ -44,6 +44,7 @@ import { AgencyCommandCenterTab } from '@/components/agency-command-center-tab'
 import { CrmCopilotTab } from '@/components/crm-copilot-tab'
 import { RevenueAttributionTab } from '@/components/revenue-attribution-tab'
 import { AgentWorkspaceTab } from '@/components/agent-workspace-tab'
+import { HermesTab } from '@/components/hermes-tab'
 import { toast } from 'sonner'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -334,6 +335,7 @@ export default function Home() {
     {
       title: 'Outils IA',
       items: [
+        { id: 'hermes', label: 'Hermes Agent', icon: Sparkles },
         { id: 'agent-ia', label: 'Agent IA', icon: Bot },
         { id: 'agent-workspace', label: 'Agent Workspace', icon: Bot },
         { id: 'mission-scout', label: 'Mission Scout', icon: Search },
@@ -508,6 +510,11 @@ export default function Home() {
             {activeTab === 'agent-workspace' && (
               <motion.div key="agent-workspace" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
                 <AgentWorkspaceTab />
+              </motion.div>
+            )}
+            {activeTab === 'hermes' && (
+              <motion.div key="hermes" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <HermesTab />
               </motion.div>
             )}
             {activeTab === 'profile' && (
@@ -1370,6 +1377,7 @@ function PlaceholderTab({ tabId }: { tabId: string }) {
     'networking': { title: 'Networking', description: 'Développez votre réseau LinkedIn', icon: Network },
     'agent-ia': { title: 'Agent IA', description: 'Votre assistant IA pour LinkedIn', icon: Bot },
     'agent-workspace': { title: 'AI Agent Workspace', description: 'Tâches et mémoire à long terme pour votre agent IA', icon: Bot },
+    'hermes': { title: 'Hermes Agent', description: 'Agent IA autonome qui automatise vos tâches LinkedIn', icon: Sparkles },
     'mission-scout': { title: 'Mission Scout', description: 'Identifiez les opportunités et tendances', icon: Search },
     'brand-studio': { title: 'Personal Brand Studio', description: 'Analysez votre voix éditoriale et créez votre marque personnelle', icon: Wand2 },
     'content-quality': { title: 'Content Quality Studio', description: 'Scorez vos posts et obtenez des suggestions d\'amélioration', icon: Gauge },
