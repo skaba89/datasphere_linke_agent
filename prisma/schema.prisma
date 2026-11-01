@@ -639,7 +639,6 @@ model PostProposal {
   @@index([createdAt])
   @@index([scheduledFor])
   @@index([status, updatedAt])
-  @@index([status, linkedinPostId, lastSyncedAt])
 }
 
 model EngagementMetric {

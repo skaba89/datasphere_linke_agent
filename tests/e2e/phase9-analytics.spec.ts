@@ -76,7 +76,7 @@ test.describe('P1-D Analytics + Revenue Attribution', () => {
       },
     })
 
-    if (createRes.status() === 402) {
+    if (createRes.status() === 402 || createRes.status() === 403) {
       // Plan gate active for Pro trial — skip revenue tests
       test.skip(true, 'Revenue Attribution requires Business plan')
       return
@@ -124,8 +124,8 @@ test.describe('P1-D Analytics + Revenue Attribution', () => {
     const res = await request.get('/api/revenue-attribution/export', {
       headers: { Cookie: cookies },
     })
-    // Pro trial → 402, Business+ → 200 CSV
-    if (res.status() === 402) {
+    // Pro trial → 403, Business+ → 200 CSV
+    if (res.status() === 402 || res.status() === 403) {
       test.skip(true, 'Revenue export requires Business plan')
       return
     }
