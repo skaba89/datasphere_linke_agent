@@ -109,6 +109,15 @@ export async function PATCH(
         )
       }
       data.stage = body.stage
+
+      // Auto-set wonAt/lostAt timestamps on stage transition
+      if (body.stage === 'won' && existing.stage !== 'won') {
+        data.wonAt = new Date()
+        data.lostAt = null // clear lostAt if moving to won
+      } else if (body.stage === 'lost' && existing.stage !== 'lost') {
+        data.lostAt = new Date()
+        data.wonAt = null // clear wonAt if moving to lost
+      }
     }
 
     // Dedup check on email change (B4 fix for PATCH)

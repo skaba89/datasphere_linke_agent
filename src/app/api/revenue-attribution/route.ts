@@ -149,6 +149,20 @@ export async function POST(request: Request) {
       },
     })
 
+    // Audit log (fix B6)
+    const { logAuditAction, extractRequestInfo } = await import('@/lib/audit-log')
+    const { ipAddress, userAgent } = extractRequestInfo(request)
+    await logAuditAction({
+      actorId: userId,
+      actorEmail: '',
+      action: 'revenue.create',
+      targetType: 'RevenueAttribution',
+      targetId: entry.id,
+      details: { amountCents: entry.amountCents, source: finalSource, clientId, prospectId },
+      ipAddress,
+      userAgent,
+    })
+
     return NextResponse.json({ success: true, data: entry }, { status: 201 })
   } catch (error: any) {
     console.error('[POST /api/revenue-attribution]', error)

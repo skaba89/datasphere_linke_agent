@@ -140,6 +140,8 @@ model Prospect {
   tags        String?  // comma-separated
   score       Float    @default(0) // 0-100, calculé par le scoring job
   scoredAt    DateTime?
+  wonAt       DateTime? // timestamp quand stage est passé à 'won'
+  lostAt      DateTime? // timestamp quand stage est passé à 'lost'
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -625,6 +627,13 @@ model PostProposal {
   publishedAt    DateTime?
   errorMessage   String? // last error message when publish fails
   lastPublishAttemptAt DateTime? // timestamp of the last publish attempt
+  // Per-post real engagement metrics (synced from LinkedIn API)
+  likes          Int      @default(0)
+  commentsCount  Int      @default(0)
+  shares         Int      @default(0)
+  views          Int      @default(0)
+  clicks         Int      @default(0)
+  lastSyncedAt   DateTime? // last time engagement metrics were synced
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -637,18 +646,20 @@ model PostProposal {
   @@index([createdAt])
   @@index([scheduledFor])
   @@index([status, updatedAt])
+  @@index([status, linkedinPostId, lastSyncedAt])
 }
 
 model EngagementMetric {
-  id        String   @id @default(cuid())
-  userId    String?
-  date      String
-  likes     Int      @default(0)
-  comments  Int      @default(0)
-  shares    Int      @default(0)
-  views     Int      @default(0)
-  clicks    Int      @default(0)
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String?
+  date       String
+  likes      Int      @default(0)
+  comments   Int      @default(0)
+  shares     Int      @default(0)
+  views      Int      @default(0)
+  clicks     Int      @default(0)
+  dataSource String   @default("actual") // actual | estimated | unavailable
+  createdAt  DateTime @default(now())
 
   @@index([userId])
   @@index([date])
