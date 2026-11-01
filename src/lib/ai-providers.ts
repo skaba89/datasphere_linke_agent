@@ -57,10 +57,9 @@ async function findAvailableGeminiModel(apiKey: string): Promise<string | null> 
       // Chercher un modèle qui supporte generateContent et qui contient "flash" (rapide + gratuit)
       const flashModel = models.find((m: any) =>
         m.supportedGenerationMethods?.includes('generateContent') &&
-        m.name?.includes('flash')
+        (m.name?.includes('flash') || m.name?.includes('Flash'))
       )
       if (flashModel) {
-        // Le nom retourné est "models/gemini-X.X-flash" — on garde juste le nom du modèle
         cachedGeminiModel = flashModel.name.replace('models/', '')
         return cachedGeminiModel
       }
@@ -72,17 +71,25 @@ async function findAvailableGeminiModel(apiKey: string): Promise<string | null> 
         cachedGeminiModel = anyModel.name.replace('models/', '')
         return cachedGeminiModel
       }
+    } else {
+      console.error('[Gemini] ListModels API returned:', listRes.status, await listRes.text().catch(() => ''))
     }
-  } catch {}
+  } catch (err) {
+    console.error('[Gemini] ListModels fetch error:', err)
+  }
 
-  // 2. Fallback : essayer des noms connus manuellement
+  // 2. Fallback : essayer des noms de modèles connus (mis à jour 2025)
   const fallbackModels = [
-    'gemini-flash-latest',
     'gemini-2.5-flash',
+    'gemini-2.5-flash-preview-05-09',
     'gemini-2.0-flash',
+    'gemini-2.0-flash-001',
+    'gemini-2.0-flash-lite',
     'gemini-1.5-flash',
+    'gemini-1.5-flash-002',
     'gemini-1.5-flash-latest',
     'gemini-1.5-pro',
+    'gemini-1.5-pro-002',
     'gemini-pro',
   ]
 
@@ -101,6 +108,7 @@ async function findAvailableGeminiModel(apiKey: string): Promise<string | null> 
       )
       if (testRes.ok) {
         cachedGeminiModel = model
+        console.warn('[Gemini] Found working model:', model)
         return model
       }
     } catch {}
@@ -289,23 +297,38 @@ async function callZAI(params: ChatParams): Promise<ChatResult> {
 // ============================================================
 // Fonction principale : génère une réponse chat
 // Utilise le 1er provider disponible (ordre de priorité)
+// ⭐ Si le provider principal échoue, fallback vers le suivant
 // ============================================================
 export async function generateChat(params: ChatParams): Promise<ChatResult> {
-  const provider = getActiveProvider()
+  // Construire la liste des providers disponibles par ordre de priorité
+  const providers: { name: string; fn: (p: ChatParams) => Promise<ChatResult> }[] = []
+  
+  if (process.env.GEMINI_API_KEY) providers.push({ name: 'gemini', fn: callGemini })
+  if (process.env.GLM_API_KEY) providers.push({ name: 'glm', fn: callGLM })
+  if (process.env.GROQ_API_KEY) providers.push({ name: 'groq', fn: callGroq })
+  if (process.env.OPENROUTER_API_KEY) providers.push({ name: 'openrouter', fn: callOpenRouter })
+  // z-ai-sdk est toujours disponible (fallback)
+  providers.push({ name: 'zai-sdk', fn: callZAI })
 
-  switch (provider) {
-    case 'gemini':
-      return await callGemini(params)
-    case 'glm':
-      return await callGLM(params)
-    case 'groq':
-      return await callGroq(params)
-    case 'openrouter':
-      return await callOpenRouter(params)
-    default:
-      // Fallback : z-ai-web-dev-sdk
-      return await callZAI(params)
+  if (providers.length === 0) {
+    throw new Error('Aucun provider IA configuré. Définissez au moins GEMINI_API_KEY.')
   }
+
+  // Essayer chaque provider en séquence jusqu'à ce qu'un réussisse
+  let lastError: Error | null = null
+  for (const { name, fn } of providers) {
+    try {
+      const result = await fn(params)
+      return result
+    } catch (err: any) {
+      console.error(`[AI] Provider "${name}" failed:`, err.message)
+      lastError = err
+      // Continuer vers le prochain provider
+    }
+  }
+
+  // Tous les providers ont échoué
+  throw new Error(`Tous les providers IA ont échoué. Dernière erreur: ${lastError?.message || 'inconnue'}`)
 }
 
 // ============================================================
