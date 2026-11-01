@@ -1,21 +1,78 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUserId } from '@/lib/auth'
+import {
+  decodeCursor,
+  normalizeLimit,
+  buildPaginationResult,
+} from '@/lib/pagination'
 
 // ============================================================
 // GET /api/proposals
 // Liste les propositions de l'utilisateur courant
+//
+// Query params (cursor-based pagination):
+//   - limit : nombre d'items par page (défaut 20, max 100)
+//   - cursor : curseur de la page précédente
+//   - status : filtrer par statut (pending, approved, published, rejected, failed)
+//
+// Réponse:
+//   { success, data, nextCursor, hasMore }
 // ============================================================
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const userId = await getCurrentUserId()
-    const where = userId ? { userId } : {}
+    const { searchParams } = new URL(request.url)
+
+    const limit = normalizeLimit(parseInt(searchParams.get('limit') || '20'))
+    const cursor = searchParams.get('cursor') || undefined
+    const status = searchParams.get('status') || undefined
+
+    // Decode cursor to get the last item's id
+    const cursorId = cursor ? decodeCursor(cursor) : null
+
+    // If we have a cursor, fetch the cursor item to get its createdAt
+    let cursorItem: { id: string; createdAt: Date } | null = null
+    if (cursorId) {
+      cursorItem = await db.postProposal.findUnique({
+        where: { id: cursorId },
+        select: { id: true, createdAt: true },
+      })
+      if (!cursorItem) {
+        return NextResponse.json(
+          { success: false, error: 'Curseur invalide ou expiré' },
+          { status: 400 }
+        )
+      }
+    }
+
+    const where: any = {}
+    if (userId) where.userId = userId
+    if (status) where.status = status
+
+    // Cursor-based where clause: items older than the cursor item
+    if (cursorItem) {
+      where.OR = [
+        { createdAt: { lt: cursorItem.createdAt } },
+        { createdAt: cursorItem.createdAt, id: { lt: cursorItem.id } },
+      ]
+    }
+
+    // Fetch limit + 1 to detect hasMore
     const proposals = await db.postProposal.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
     })
 
-    return NextResponse.json({ success: true, data: proposals })
+    const result = buildPaginationResult(proposals, limit)
+
+    return NextResponse.json({
+      success: true,
+      data: result.data,
+      nextCursor: result.nextCursor,
+      hasMore: result.hasMore,
+    })
   } catch (error) {
     console.error('Error fetching proposals:', error)
     return NextResponse.json(
