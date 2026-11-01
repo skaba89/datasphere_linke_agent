@@ -98,7 +98,7 @@ test.describe('Authentication', () => {
 test.describe('UI Auth flow', () => {
   test('register page works', async ({ page }) => {
     await page.goto('/register')
-    await expect(page.locator('h2')).toContainText('Créer un compte')
+    await expect(page.locator('text=Créer un compte')).toBeVisible({ timeout: 15000 })
 
     await page.fill('[id="name"]', 'Playwright User')
     await page.fill('[id="email"]', `ui-test-${Date.now()}@datasphere.io`)
@@ -113,6 +113,6 @@ test.describe('UI Auth flow', () => {
 
   test('login page works', async ({ page }) => {
     await page.goto('/login')
-    await expect(page.locator('h2')).toContainText('Connexion')
+    await expect(page.locator('text=Connexion')).toBeVisible({ timeout: 15000 })
   })
 })

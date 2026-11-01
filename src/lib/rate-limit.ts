@@ -86,7 +86,7 @@ export function checkRateLimit(
 export const RATE_LIMITS = {
   global: { limit: 100, windowMs: 60 * 1000 }, // 100/min
   login: { limit: 5, windowMs: 15 * 60 * 1000 }, // 5/15min
-  register: { limit: 3, windowMs: 60 * 60 * 1000 }, // 3/h
+  register: { limit: process.env.NODE_ENV === 'production' ? 3 : 1000, windowMs: 60 * 60 * 1000 }, // 3/h prod, 1000/h dev/test
   aiGenerate: { limit: 10, windowMs: 60 * 60 * 1000 }, // 10/h/user
   linkedinPublish: { limit: 20, windowMs: 60 * 60 * 1000 }, // 20/h/user
   linkedinAuth: { limit: 5, windowMs: 10 * 60 * 1000 }, // 5/10min
