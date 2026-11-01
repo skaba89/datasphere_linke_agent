@@ -64,8 +64,10 @@
 | AI Agent Workspace | ✅ Implémenté (P4-2) | Done |
 | Email-to-LinkedIn Bridge | ✅ Implémenté (P4-2) | Done |
 | Multi-langue (i18n) | ✅ Implémenté (P4-2, FR/EN toggle) | Done |
-| MCP Server | Absent | P5 |
-| Chrome Extension | Absent | P5 |
+| MCP Server | ✅ Implémenté (P5) | Done |
+| Chrome Extension | ✅ Implémenté (P5) | Done |
+
+Tous les modules du roadmap initial (P0 → P5) sont désormais implémentés. Voir `docs/ROADMAP.md` pour les évolutions futures (P5+ industrialisation, P6 scalabilité, P7 produit).
 
 ### ✅ NOUVEAUX MODULES P3 (ajoutés)
 
@@ -85,6 +87,8 @@
 | **Email-to-LinkedIn Bridge** | `/api/email-bridge/inbound`, `/api/email-bridge/drafts` | — | ✅ Webhook Resend Inbound → PostProposal pending (Pro+) |
 | **AI Agent Workspace** | `/api/agent-workspace/tasks`, `/api/agent-workspace/memory` | Agent Workspace tab | ✅ Tasks CRUD + memory upsert + migration DB |
 | **i18n FR/EN** | — | Language toggle (header) | ✅ LanguageProvider + dictionary + localStorage |
+| **MCP Server** | `/api/mcp` (JSON-RPC 2.0, 9 tools) | — | ✅ Compatible Claude Desktop / Cursor (plan Business+) |
+| **Chrome Extension** | `/api/extension/comments` | chrome-extension/ | ✅ Capture commentaires LinkedIn → DataSphere (plan Business+) |
 
 ## Dépendances externes
 
