@@ -44,19 +44,17 @@
 
 | Module | Implémenté | Manquant |
 |---|---|---|
-| CRM Séquences | Création, liste | Envoi automatique (cron), étapes multiples |
+| CRM Séquences | Création, liste, génération auto (cron), envoi manuel | Envoi 100% automatique (opt-in) |
 | Teams | Invitation, accept, liste | Permissions par client, isolation données |
 | Analytics | Graphiques, 14j de données | Métriques réelles LinkedIn (limité par API) |
 | Automation | Comment replies, CRM sequences | Source de commentaires (Chrome ext ou webhook) |
-| Multi-IA | 5 providers (Gemini/GLM/Groq/OpenRouter/z-ai) | Comparaison, fallback automatique |
-| Networking | Stats, liste prospects | Import CSV, déduplication |
+| Multi-IA | 5 providers (Gemini/GLM/Groq/OpenRouter/z-ai), comparaison parallèle, fallback | Sélection manuelle du provider actif |
+| Networking | Stats, liste prospects | Import CSV spécifique (au pipeline networking) |
 
 ### ❌ NON FONCTIONNEL / ABSENT
 
 | Module | Statut | Priorité |
 |---|---|---|
-| AI Personal Brand Studio | Absent | P3 |
-| Content Quality Studio | Absent | P3 |
 | LinkedIn Performance Intelligence | Partiel (analytics basique) | P3 |
 | AI CRM Copilot | Partiel (Agent IA) | P3 |
 | Agency Command Center | Partiel (dashboard + clients) | P3 |
@@ -67,7 +65,16 @@
 | Email-to-LinkedIn Bridge | Absent | P4 |
 | Multi-langue (i18n) | Absent | P4 |
 | Dark mode | Absent | P4 |
-| Import/Export CSV CRM | Absent | P3 |
+
+### ✅ NOUVEAUX MODULES P3 (ajoutés)
+
+| Module | APIs | Écran | Statut |
+|---|---|---|---|
+| Personal Brand Studio | `/api/brand-studio` | Brand Studio tab | ✅ UI + API |
+| Content Quality Studio | `/api/content-quality` | Content Quality tab | ✅ UI + API |
+| Multi-IA Comparison | `/api/ai/compare` | Multi-IA Compare tab | ✅ UI + API + plan gate (Pro+) |
+| CRM CSV Import/Export | `/api/prospects/import` (POST + GET) | Prospecting tab | ✅ UI + API + déduplication |
+| CRM Messages send-draft | `/api/crm-messages/[id]/send` | Messages tab | ✅ UI + API |
 
 ## Dépendances externes
 

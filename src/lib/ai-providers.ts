@@ -320,3 +320,48 @@ export function getAvailableProviders(): string[] {
   providers.push('zai-sdk') // toujours disponible (fallback)
   return providers
 }
+
+// ============================================================
+// Compare providers : lance le même prompt sur tous les
+// providers configurés et retourne chaque réponse + latence.
+// ============================================================
+export type ComparisonResult = {
+  provider: string
+  content: string | null
+  latencyMs: number
+  error?: string
+}
+
+export async function compareProviders(params: ChatParams): Promise<ComparisonResult[]> {
+  const tasks: Promise<ComparisonResult>[] = []
+
+  if (process.env.GEMINI_API_KEY) {
+    tasks.push(runTimed('gemini', () => callGemini(params)))
+  }
+  if (process.env.GLM_API_KEY) {
+    tasks.push(runTimed('glm', () => callGLM(params)))
+  }
+  if (process.env.GROQ_API_KEY) {
+    tasks.push(runTimed('groq', () => callGroq(params)))
+  }
+  if (process.env.OPENROUTER_API_KEY) {
+    tasks.push(runTimed('openrouter', () => callOpenRouter(params)))
+  }
+  // Always include z-ai-sdk
+  tasks.push(runTimed('zai-sdk', () => callZAI(params)))
+
+  return Promise.all(tasks)
+}
+
+async function runTimed(
+  provider: string,
+  fn: () => Promise<ChatResult>
+): Promise<ComparisonResult> {
+  const start = Date.now()
+  try {
+    const result = await fn()
+    return { provider, content: result.content, latencyMs: Date.now() - start }
+  } catch (err: any) {
+    return { provider, content: null, latencyMs: Date.now() - start, error: err.message }
+  }
+}

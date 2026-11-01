@@ -527,6 +527,9 @@ export function ProspectingTab() {
   const [prospects, setProspects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
+  const [showImport, setShowImport] = useState(false)
+  const [importText, setImportText] = useState('')
+  const [importing, setImporting] = useState(false)
   const [form, setForm] = useState({ name: '', company: '', title: '', email: '', linkedinUrl: '', notes: '' })
 
   const load = () => {
@@ -556,6 +559,83 @@ export function ProspectingTab() {
     } catch (e: any) { toast.error(e.message) }
   }
 
+  // CSV parser: parses CSV text into objects (header row required)
+  const parseCsv = (text: string): Record<string, string>[] => {
+    const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0)
+    if (lines.length === 0) return []
+    // RFC4180 CSV parser
+    const parseLine = (line: string): string[] => {
+      const fields: string[] = []
+      let cur = ''
+      let inQuotes = false
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i]
+        if (inQuotes) {
+          if (c === '"') {
+            if (line[i + 1] === '"') { cur += '"'; i++ }
+            else inQuotes = false
+          } else cur += c
+        } else {
+          if (c === '"') inQuotes = true
+          else if (c === ',') { fields.push(cur); cur = '' }
+          else cur += c
+        }
+      }
+      fields.push(cur)
+      return fields
+    }
+    const headers = parseLine(lines[0]).map(h => h.trim().toLowerCase())
+    const nameIdx = headers.findIndex(h => h === 'name' || h === 'nom')
+    if (nameIdx === -1) throw new Error('Colonne "name" ou "nom" requise en première ligne')
+    return lines.slice(1).map(line => {
+      const values = parseLine(line)
+      const obj: Record<string, string> = {}
+      headers.forEach((h, i) => { obj[h] = (values[i] || '').trim() })
+      // Normalize aliases
+      if (!obj.name && obj.nom) obj.name = obj.nom
+      if (obj.email && !obj.email) obj.email = obj['e-mail'] || obj['mail'] || ''
+      return obj
+    })
+  }
+
+  const handleImport = async () => {
+    if (!importText.trim()) { toast.error('Collez du contenu CSV'); return }
+    setImporting(true)
+    try {
+      const parsed = parseCsv(importText)
+      if (parsed.length === 0) { toast.error('Aucune ligne trouvée'); return }
+      const prospects = parsed.map(p => ({
+        name: p.name || p.nom || '',
+        email: p.email || p['e-mail'] || p.mail || '',
+        company: p.company || p.entreprise || p['société'] || '',
+        title: p.title || p.titre || p.poste || '',
+        linkedinUrl: p.linkedinurl || p.linkedin || p.url || '',
+        notes: p.notes || p.notes || '',
+        tags: p.tags || '',
+      })).filter(p => p.name.length > 0)
+
+      const res = await fetch('/api/prospects/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prospects }),
+      })
+      const d = await res.json()
+      if (!d.success) throw new Error(d.error)
+      toast.success(`${d.data.created} importés, ${d.data.duplicates} doublons ignorés`)
+      setImportText('')
+      setShowImport(false)
+      load()
+    } catch (e: any) {
+      toast.error(`Erreur import: ${e.message}`)
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const handleExport = () => {
+    window.location.href = '/api/prospects/import'
+  }
+
   const stageColors: Record<string, string> = {
     new: 'bg-slate-100 text-slate-600',
     contacted: 'bg-blue-100 text-blue-600',
@@ -575,8 +655,36 @@ export function ProspectingTab() {
           </h1>
           <p className="text-slate-500 mt-1">Trouvez et gérez vos prospects LinkedIn</p>
         </div>
-        <Button onClick={() => setShowAdd(!showAdd)}><Plus className="h-4 w-4 mr-2" />Ajouter</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleExport}><FileBarChart className="h-4 w-4 mr-1.5" />Export CSV</Button>
+          <Button variant="outline" size="sm" onClick={() => setShowImport(!showImport)}><FileCode className="h-4 w-4 mr-1.5" />Import CSV</Button>
+          <Button onClick={() => setShowAdd(!showAdd)}><Plus className="h-4 w-4 mr-2" />Ajouter</Button>
+        </div>
       </div>
+
+      {showImport && (
+        <Card><CardContent className="p-4 space-y-3">
+          <div>
+            <Label>Contenu CSV (avec en-tête)</Label>
+            <p className="text-xs text-slate-500 mb-2">
+              Format attendu : <code>name,email,company,title,linkedinUrl,tags,notes</code>. Une ligne par prospect. Maximum 1000 par import. Doublons auto-détectés (email, URL LinkedIn, ou nom+entreprise).
+            </p>
+            <Textarea
+              value={importText}
+              onChange={e => setImportText(e.target.value)}
+              placeholder={`name,email,company,title,linkedinUrl,tags,notes\nJean Dupont,jean@techcorp.com,TechCorp,CTO,https://linkedin.com/in/jeandupont,vip,Contacté hier\nMarie Martin,marie@startup.io,Startup,CEO,,,"A rencontrer"`}
+              rows={8}
+              className="text-xs font-mono"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={handleImport} disabled={importing}>
+              {importing ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Import...</> : <>Importer</>}
+            </Button>
+            <Button variant="outline" onClick={() => setShowImport(false)}>Annuler</Button>
+          </div>
+        </CardContent></Card>
+      )}
 
       {showAdd && (
         <Card><CardContent className="p-4 space-y-3">
@@ -595,7 +703,7 @@ export function ProspectingTab() {
       <Card>
         <CardContent className="p-0">
           {loading ? <div className="p-4 space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div> :
-           prospects.length === 0 ? <div className="text-center py-12"><Target className="h-12 w-12 text-slate-300 mx-auto mb-3" /><p className="text-slate-500">Aucun prospect. Cliquez sur "Ajouter".</p></div> :
+           prospects.length === 0 ? <div className="text-center py-12"><Target className="h-12 w-12 text-slate-300 mx-auto mb-3" /><p className="text-slate-500">Aucun prospect. Cliquez sur "Ajouter" ou importez un CSV.</p></div> :
            <div className="divide-y divide-slate-100">
              {prospects.map(p => (
                <div key={p.id} className="flex items-center gap-3 p-3 hover:bg-slate-50">
@@ -826,16 +934,19 @@ export function MessagesTab() {
   const [messages, setMessages] = useState<any[]>([])
   const [selectedProspect, setSelectedProspect] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [sendingId, setSendingId] = useState<string | null>(null)
   const [newMessage, setNewMessage] = useState({ subject: '', body: '' })
 
   useEffect(() => {
     fetch('/api/prospects').then(r => r.json()).then(d => { if (d.success) setProspects(d.data) }).finally(() => setLoading(false))
   }, [])
 
+  const loadMessages = (prospectId: string) => {
+    fetch(`/api/crm-messages?prospectId=${prospectId}`).then(r => r.json()).then(d => { if (d.success) setMessages(d.data) })
+  }
+
   useEffect(() => {
-    if (selectedProspect) {
-      fetch(`/api/crm-messages?prospectId=${selectedProspect}`).then(r => r.json()).then(d => { if (d.success) setMessages(d.data) })
-    }
+    if (selectedProspect) loadMessages(selectedProspect)
   }, [selectedProspect])
 
   const handleSend = async () => {
@@ -852,6 +963,24 @@ export function MessagesTab() {
       setNewMessage({ subject: '', body: '' })
       setMessages(prev => [d.data, ...prev])
     } catch (e: any) { toast.error(e.message) }
+  }
+
+  const handleSendDraft = async (messageId: string) => {
+    setSendingId(messageId)
+    try {
+      const res = await fetch(`/api/crm-messages/${messageId}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const d = await res.json()
+      if (!d.success) throw new Error(d.error)
+      toast.success('Brouillon envoyé')
+      if (selectedProspect) loadMessages(selectedProspect)
+    } catch (e: any) {
+      toast.error(e.message)
+    } finally {
+      setSendingId(null)
+    }
   }
 
   return (
@@ -891,10 +1020,32 @@ export function MessagesTab() {
                <div className="space-y-2 max-h-64 overflow-y-auto">
                  {messages.length === 0 ? <p className="text-sm text-slate-400 text-center py-4">Aucun message</p> :
                   messages.map(m => (
-                    <div key={m.id} className={`p-2 rounded-lg ${m.status === 'sent' ? 'bg-emerald-50 ml-8' : 'bg-slate-100 mr-8'}`}>
-                      <p className="text-xs font-semibold text-slate-700">{m.subject}</p>
-                      <p className="text-xs text-slate-600 mt-1">{m.body}</p>
-                      <p className="text-[10px] text-slate-400 mt-1">{m.sentAt ? new Date(m.sentAt).toLocaleString('fr-FR') : 'Brouillon'}</p>
+                    <div key={m.id} className={`p-2 rounded-lg ${m.status === 'sent' ? 'bg-emerald-50 ml-8' : 'bg-amber-50 border border-amber-200 mr-8'}`}>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-slate-700">{m.subject}</p>
+                        {m.status === 'draft' && (
+                          <Badge variant="outline" className="text-[9px] bg-amber-100 text-amber-700 border-amber-300">Brouillon</Badge>
+                        )}
+                        {m.status === 'sent' && (
+                          <Badge variant="outline" className="text-[9px] bg-emerald-100 text-emerald-700 border-emerald-300">Envoyé</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-600 mt-1 whitespace-pre-wrap">{m.body}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-[10px] text-slate-400">
+                          {m.sentAt ? new Date(m.sentAt).toLocaleString('fr-FR') : `Brouillon · ${new Date(m.createdAt).toLocaleDateString('fr-FR')}`}
+                        </p>
+                        {m.status === 'draft' && (
+                          <Button
+                            size="sm"
+                            className="h-6 text-xs bg-emerald-600 hover:bg-emerald-700"
+                            disabled={sendingId === m.id}
+                            onClick={() => handleSendDraft(m.id)}
+                          >
+                            {sendingId === m.id ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" />...</> : <><Send className="h-3 w-3 mr-1" />Envoyer</>}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
                </div>

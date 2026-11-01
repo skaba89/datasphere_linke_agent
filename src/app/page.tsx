@@ -13,7 +13,8 @@ import {
   Send, Globe, Play, ChevronDown, ExternalLink, Layers,
   Bot, BarChart as BarChartIcon, Calendar, UserCheck, Rocket, Heart,
   MousePointer, Activity, User, Network, Search, FileCode, ScrollText,
-  FileBarChart, Filter, MessageSquare, Zap as ZapIcon
+  FileBarChart, Filter, MessageSquare, Zap as ZapIcon,
+  Wand2, Gauge, Cpu
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -35,6 +36,7 @@ import { AgencyDashboard } from '@/components/agency-dashboard'
 import { CalendarTab, TemplatesTab, LogsTab, ReportsTab, AgentIATab, ProfileTab, ComingSoonTab, ProspectingTab, PipelineTab, CrmTab, NetworkingTab, MessagesTab } from '@/components/dashboard-tabs'
 import { CommentsTab } from '@/components/comments-tab'
 import { ScoutTab } from '@/components/scout-tab'
+import { BrandStudioTab, ContentQualityTab, MultiAICompareTab } from '@/components/brand-studio-tabs'
 import { toast } from 'sonner'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -327,6 +329,9 @@ export default function Home() {
         { id: 'mission-scout', label: 'Mission Scout', icon: Search },
         { id: 'templates-ia', label: 'Templates IA', icon: FileCode },
         { id: 'smart-poster', label: 'Smart Poster', icon: Sparkles },
+        { id: 'brand-studio', label: 'Brand Studio', icon: Wand2 },
+        { id: 'content-quality', label: 'Content Quality', icon: Gauge },
+        { id: 'ai-compare', label: 'Multi-IA Compare', icon: Cpu },
       ],
     },
     {
@@ -477,6 +482,21 @@ export default function Home() {
             {activeTab === 'mission-scout' && (
               <motion.div key="mission-scout" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
                 <ScoutTab />
+              </motion.div>
+            )}
+            {activeTab === 'brand-studio' && (
+              <motion.div key="brand-studio" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <BrandStudioTab />
+              </motion.div>
+            )}
+            {activeTab === 'content-quality' && (
+              <motion.div key="content-quality" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <ContentQualityTab />
+              </motion.div>
+            )}
+            {activeTab === 'ai-compare' && (
+              <motion.div key="ai-compare" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <MultiAICompareTab />
               </motion.div>
             )}
             {activeTab === 'messages' && (
@@ -1308,6 +1328,9 @@ function PlaceholderTab({ tabId }: { tabId: string }) {
     'networking': { title: 'Networking', description: 'Développez votre réseau LinkedIn', icon: Network },
     'agent-ia': { title: 'Agent IA', description: 'Votre assistant IA pour LinkedIn', icon: Bot },
     'mission-scout': { title: 'Mission Scout', description: 'Identifiez les opportunités et tendances', icon: Search },
+    'brand-studio': { title: 'Personal Brand Studio', description: 'Analysez votre voix éditoriale et créez votre marque personnelle', icon: Wand2 },
+    'content-quality': { title: 'Content Quality Studio', description: 'Scorez vos posts et obtenez des suggestions d\'amélioration', icon: Gauge },
+    'ai-compare': { title: 'Multi-IA Comparison', description: 'Comparez les réponses de tous les providers IA en parallèle', icon: Cpu },
     'templates-ia': { title: 'Templates IA', description: 'Bibliothèque de templates de posts par industrie', icon: FileCode },
     'logs': { title: 'Logs', description: 'Historique des actions et erreurs', icon: ScrollText },
     'reports': { title: 'Rapports', description: 'Rapports de performance détaillés', icon: FileBarChart },
