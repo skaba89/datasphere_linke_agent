@@ -38,6 +38,9 @@ jobs:
       - name: ESLint
         run: npx eslint .
 
+      - name: Test migrations syntax (pg-mem)
+        run: node scripts/test-migrations.js
+
   # ============================================================
   # Job 2 : Build (vérifie que le build passe)
   # ============================================================
@@ -77,12 +80,42 @@ jobs:
           retention-days: 3
 
   # ============================================================
+  # Job 2.5 : Tests unitaires (Vitest)
+  # ============================================================
+  unit-tests:
+    name: Unit Tests (Vitest)
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --ignore-scripts
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: "postgresql://fake:fake@localhost:5432/fake"
+
+      - name: Run Vitest
+        run: npx vitest run
+        env:
+          DATABASE_URL: "postgresql://fake:fake@localhost:5432/fake"
+          JWT_SECRET: ci-secret-for-tests-only-32chars
+
+  # ============================================================
   # Job 3 : Tests E2E (Playwright) avec PostgreSQL service
   # ============================================================
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, unit-tests]
     # Skip sur les PRs venant de forks
     if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
 

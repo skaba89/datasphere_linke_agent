@@ -12,7 +12,7 @@ CREATE TABLE "AgentTask" (
     "agentNotes" TEXT,
     "dueAt" TIMESTAMP(3),
     "completedAt" TIMESTAMP(3),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "AgentTask_pkey" PRIMARY KEY ("id")
@@ -25,7 +25,7 @@ CREATE TABLE "AgentMemory" (
     "key" TEXT NOT NULL,
     "value" TEXT NOT NULL,
     "category" TEXT NOT NULL DEFAULT 'general', -- general | preference | fact | goal
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "AgentMemory_pkey" PRIMARY KEY ("id")

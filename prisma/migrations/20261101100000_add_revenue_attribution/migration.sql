@@ -9,8 +9,8 @@ CREATE TABLE "RevenueAttribution" (
     "currency" TEXT NOT NULL DEFAULT 'EUR',
     "source" TEXT NOT NULL DEFAULT 'manual', -- manual | stripe | import
     "description" TEXT,
-    "attributedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(),
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(),
+    "attributedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "RevenueAttribution_pkey" PRIMARY KEY ("id")
 );

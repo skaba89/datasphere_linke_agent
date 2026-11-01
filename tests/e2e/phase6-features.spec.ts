@@ -145,6 +145,6 @@ test.describe('Phase 6 — Pagination cursor-based + SSE + Cache headers', () =>
   test('API routes have no-cache header', async ({ request }) => {
     const res = await request.get('/api/health')
     const cacheControl = res.headers()['cache-control'] || ''
-    expect(cacheControl).toContain('no-cache').or.toContain('no-store')
+    expect(cacheControl.includes('no-cache') || cacheControl.includes('no-store')).toBe(true)
   })
 })
