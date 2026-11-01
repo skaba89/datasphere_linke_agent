@@ -2075,7 +2075,7 @@ function LandingPage({ onLogin, onCTA }: { onLogin: () => void; onCTA: () => voi
             <div>
               <h4 className="font-semibold text-white text-sm mb-4">Produit</h4>
               <ul className="space-y-2.5">
-                <li><a href="/#fonctionnalites" className="text-sm text-slate-400 hover:text-white transition-colors">Fonctionnalités</a></li>
+                <li><Link href="/#fonctionnalites" className="text-sm text-slate-400 hover:text-white transition-colors">Fonctionnalités</Link></li>
                 <li><Link href="/pricing" className="text-sm text-slate-400 hover:text-white transition-colors">Tarifs</Link></li>
                 <li><Link href="/blog" className="text-sm text-slate-400 hover:text-white transition-colors">Blog</Link></li>
                 <li><a href="/affiliate" className="text-sm text-slate-400 hover:text-white transition-colors">Affiliation</a></li>
@@ -2086,7 +2086,7 @@ function LandingPage({ onLogin, onCTA }: { onLogin: () => void; onCTA: () => voi
             <div>
               <h4 className="font-semibold text-white text-sm mb-4">Entreprise</h4>
               <ul className="space-y-2.5">
-                <li><a href="/blog" className="text-sm text-slate-400 hover:text-white transition-colors">Blog</a></li>
+                <li><Link href="/blog" className="text-sm text-slate-400 hover:text-white transition-colors">Blog</Link></li>
                 <li><a href="/affiliate" className="text-sm text-slate-400 hover:text-white transition-colors">Affiliation</a></li>
                 <li><a href="/legal/notice" className="text-sm text-slate-400 hover:text-white transition-colors">Contact</a></li>
                 <li><a href="/setup" className="text-sm text-slate-400 hover:text-white transition-colors">Aide</a></li>
@@ -2110,7 +2110,7 @@ function LandingPage({ onLogin, onCTA }: { onLogin: () => void; onCTA: () => voi
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-sm text-slate-500">© 2025 LinkedInPost. Tous droits réservés.</p>
             <div className="flex items-center gap-4">
-              <a href="/blog" className="text-slate-500 hover:text-white transition-colors"><Globe className="h-5 w-5" /></a>
+              <Link href="/blog" className="text-slate-500 hover:text-white transition-colors"><Globe className="h-5 w-5" /></Link>
               <a href="/affiliate" className="text-slate-500 hover:text-white transition-colors"><MessageCircle className="h-5 w-5" /></a>
               <a href="/setup" className="text-slate-500 hover:text-white transition-colors"><Share2 className="h-5 w-5" /></a>
             </div>

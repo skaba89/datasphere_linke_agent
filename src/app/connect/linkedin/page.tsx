@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Loader2, Linkedin, AlertCircle, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import Link from 'next/link'
 
 export default function ConnectLinkedInPage() {
   return (
@@ -98,8 +99,8 @@ function ConnectContent() {
           </div>
         </div>
         <div className="flex gap-2 justify-center">
-          <a href="/"><Button variant="outline">Retour au dashboard</Button></a>
-          <a href="/connect/linkedin"><Button>Réessayer</Button></a>
+          <Link href="/"><Button variant="outline">Retour au dashboard</Button></Link>
+          <Link href="/connect/linkedin"><Button>Réessayer</Button></Link>
         </div>
       </div>
     </div>
