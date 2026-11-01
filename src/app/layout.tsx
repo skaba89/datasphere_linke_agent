@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { SentryProvider } from "@/components/sentry-provider";
 import { ThemeProvider } from "@/components/theme-provider";
+import { LanguageProvider } from "@/components/language-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -68,10 +69,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
         <ThemeProvider>
-          <SentryProvider>
-            {children}
-            <Toaster />
-          </SentryProvider>
+          <LanguageProvider>
+            <SentryProvider>
+              {children}
+              <Toaster />
+            </SentryProvider>
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>

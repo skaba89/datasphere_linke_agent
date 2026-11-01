@@ -61,11 +61,11 @@
 | Agency Command Center | ✅ Implémenté (P3-2) | Done |
 | Revenue Attribution Studio | ✅ Implémenté (P4) | Done |
 | Dark mode | ✅ Implémenté (P4) | Done |
-| AI Agent Workspace | Absent | P4 |
-| MCP Server | Absent | P4 |
-| Chrome Extension | Absent | P4 |
-| Email-to-LinkedIn Bridge | Absent | P4 |
-| Multi-langue (i18n) | Absent | P4 |
+| AI Agent Workspace | ✅ Implémenté (P4-2) | Done |
+| Email-to-LinkedIn Bridge | ✅ Implémenté (P4-2) | Done |
+| Multi-langue (i18n) | ✅ Implémenté (P4-2, FR/EN toggle) | Done |
+| MCP Server | Absent | P5 |
+| Chrome Extension | Absent | P5 |
 
 ### ✅ NOUVEAUX MODULES P3 (ajoutés)
 
@@ -82,6 +82,9 @@
 | **CRM Copilot IA** | `/api/ai/crm-copilot` | CRM Copilot IA tab | ✅ UI + API + plan gate (Pro+) |
 | **Revenue Attribution Studio** | `/api/revenue-attribution` + `/[id]` | Revenue Attribution tab | ✅ UI + API + plan gate (Business+) + migration DB |
 | **Dark mode** | — | Theme toggle (header) | ✅ ThemeProvider + anti-flash script + localStorage |
+| **Email-to-LinkedIn Bridge** | `/api/email-bridge/inbound`, `/api/email-bridge/drafts` | — | ✅ Webhook Resend Inbound → PostProposal pending (Pro+) |
+| **AI Agent Workspace** | `/api/agent-workspace/tasks`, `/api/agent-workspace/memory` | Agent Workspace tab | ✅ Tasks CRUD + memory upsert + migration DB |
+| **i18n FR/EN** | — | Language toggle (header) | ✅ LanguageProvider + dictionary + localStorage |
 
 ## Dépendances externes
 

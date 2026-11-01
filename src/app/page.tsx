@@ -33,6 +33,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { LinkedInAccountSwitcher } from '@/components/linkedin-account-switcher'
 import { NotificationBell } from '@/components/notification-bell'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { LanguageToggle } from '@/components/language-toggle'
 import { AgencyDashboard } from '@/components/agency-dashboard'
 import { CalendarTab, TemplatesTab, LogsTab, ReportsTab, AgentIATab, ProfileTab, ComingSoonTab, ProspectingTab, PipelineTab, CrmTab, NetworkingTab, MessagesTab } from '@/components/dashboard-tabs'
 import { CommentsTab } from '@/components/comments-tab'
@@ -42,6 +43,7 @@ import { PerformanceIntelligenceTab } from '@/components/performance-intelligenc
 import { AgencyCommandCenterTab } from '@/components/agency-command-center-tab'
 import { CrmCopilotTab } from '@/components/crm-copilot-tab'
 import { RevenueAttributionTab } from '@/components/revenue-attribution-tab'
+import { AgentWorkspaceTab } from '@/components/agent-workspace-tab'
 import { toast } from 'sonner'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -333,6 +335,7 @@ export default function Home() {
       title: 'Outils IA',
       items: [
         { id: 'agent-ia', label: 'Agent IA', icon: Bot },
+        { id: 'agent-workspace', label: 'Agent Workspace', icon: Bot },
         { id: 'mission-scout', label: 'Mission Scout', icon: Search },
         { id: 'templates-ia', label: 'Templates IA', icon: FileCode },
         { id: 'smart-poster', label: 'Smart Poster', icon: Sparkles },
@@ -394,6 +397,7 @@ export default function Home() {
               </a>
             )}
             <ThemeToggle />
+            <LanguageToggle />
             <NotificationBell />
           </div>
         </div>
@@ -417,6 +421,7 @@ export default function Home() {
           )}
           <div className="flex items-center gap-2">
             <ThemeToggle />
+            <LanguageToggle />
             <NotificationBell />
             <a href="/settings" className="p-2 rounded-lg hover:bg-slate-100 transition-colors">
               <Settings className="h-5 w-5 text-slate-600" />
@@ -498,6 +503,11 @@ export default function Home() {
             {activeTab === 'agent-ia' && (
               <motion.div key="agent-ia" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="h-full">
                 <AgentIATab />
+              </motion.div>
+            )}
+            {activeTab === 'agent-workspace' && (
+              <motion.div key="agent-workspace" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <AgentWorkspaceTab />
               </motion.div>
             )}
             {activeTab === 'profile' && (
@@ -1359,6 +1369,7 @@ function PlaceholderTab({ tabId }: { tabId: string }) {
     'crm-copilot': { title: 'CRM Copilot IA', description: 'Agent IA avec contexte complet prospects/clients/messages', icon: Bot },
     'networking': { title: 'Networking', description: 'Développez votre réseau LinkedIn', icon: Network },
     'agent-ia': { title: 'Agent IA', description: 'Votre assistant IA pour LinkedIn', icon: Bot },
+    'agent-workspace': { title: 'AI Agent Workspace', description: 'Tâches et mémoire à long terme pour votre agent IA', icon: Bot },
     'mission-scout': { title: 'Mission Scout', description: 'Identifiez les opportunités et tendances', icon: Search },
     'brand-studio': { title: 'Personal Brand Studio', description: 'Analysez votre voix éditoriale et créez votre marque personnelle', icon: Wand2 },
     'content-quality': { title: 'Content Quality Studio', description: 'Scorez vos posts et obtenez des suggestions d\'amélioration', icon: Gauge },
