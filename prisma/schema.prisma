@@ -559,11 +559,13 @@ model PostProposal {
   targetAudience String
   qualityScore   Float
   optimalTime    String
-  status         String   @default("pending") // pending | approved | published | rejected | failed
+  status         String   @default("pending") // pending | approved | published | rejected | failed | publishing
   engagementEst  String
   linkedinPostId String?
   scheduledFor   DateTime? // planned publication time
   publishedAt    DateTime?
+  errorMessage   String? // last error message when publish fails
+  lastPublishAttemptAt DateTime? // timestamp of the last publish attempt
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -575,6 +577,7 @@ model PostProposal {
   @@index([status])
   @@index([createdAt])
   @@index([scheduledFor])
+  @@index([status, updatedAt])
 }
 
 model EngagementMetric {

@@ -29,9 +29,16 @@ export async function GET(request: Request) {
     const status = searchParams.get('status') || undefined
 
     // Decode cursor to get the last item's id
+    // If a cursor is provided but doesn't decode properly, return 400
     const cursorId = cursor ? decodeCursor(cursor) : null
+    if (cursor && !cursorId) {
+      return NextResponse.json(
+        { success: false, error: 'Curseur invalide (format incorrect)' },
+        { status: 400 }
+      )
+    }
 
-    // If we have a cursor, fetch the cursor item to get its createdAt
+    // If we have a valid cursor, fetch the cursor item to get its createdAt
     let cursorItem: { id: string; createdAt: Date } | null = null
     if (cursorId) {
       cursorItem = await db.postProposal.findUnique({
@@ -132,7 +139,9 @@ export async function POST(request: Request) {
 // ============================================================
 // PATCH /api/proposals
 // Met à jour le statut d'une proposition (approve/reject/publish)
-// Body: { id: string, status: 'approved' | 'rejected' | 'published' | 'pending' }
+// Body: { id, status?, scheduledFor? }
+//   - status: 'pending' | 'approved' | 'rejected' | 'published' | 'failed'
+//   - scheduledFor: ISO date string (nullable to unschedule)
 // ============================================================
 export async function PATCH(request: Request) {
   try {
@@ -145,17 +154,24 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json()
-    const { id, status } = body
+    const { id, status, scheduledFor } = body
 
-    if (!id || !status) {
+    if (!id) {
       return NextResponse.json(
-        { success: false, error: 'Champs requis: id, status' },
+        { success: false, error: 'Champ requis: id' },
+        { status: 400 }
+      )
+    }
+
+    if (!status && scheduledFor === undefined) {
+      return NextResponse.json(
+        { success: false, error: 'Au moins un champ à mettre à jour: status ou scheduledFor' },
         { status: 400 }
       )
     }
 
     const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'published', 'failed']
-    if (!ALLOWED_STATUSES.includes(status)) {
+    if (status && !ALLOWED_STATUSES.includes(status)) {
       return NextResponse.json(
         { success: false, error: `Status invalide. Autorisés: ${ALLOWED_STATUSES.join(', ')}` },
         { status: 400 }
@@ -173,9 +189,39 @@ export async function PATCH(request: Request) {
       )
     }
 
+    // Construire les données à mettre à jour
+    const data: any = {}
+    if (status) data.status = status
+    if (scheduledFor !== undefined) {
+      if (scheduledFor === null) {
+        data.scheduledFor = null
+      } else {
+        const parsed = new Date(scheduledFor)
+        if (isNaN(parsed.getTime())) {
+          return NextResponse.json(
+            { success: false, error: 'scheduledFor doit être une date ISO valide' },
+            { status: 400 }
+          )
+        }
+        // Ne pas permettre de planifier dans le passé
+        if (parsed.getTime() < Date.now()) {
+          return NextResponse.json(
+            { success: false, error: 'scheduledFor doit être dans le futur' },
+            { status: 400 }
+          )
+        }
+        data.scheduledFor = parsed
+        // Si on planifie et que le status est pending, passer à approved
+        // (le cron scheduled-publish ne publie que les approved)
+        if (!status && existing.status === 'pending') {
+          data.status = 'approved'
+        }
+      }
+    }
+
     const updated = await db.postProposal.update({
       where: { id },
-      data: { status },
+      data,
     })
 
     return NextResponse.json({ success: true, data: updated })

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { encryptLinkedInToken } from '@/lib/linkedin-token-crypto'
 import { db } from '@/lib/db'
 import { getCurrentUserId } from '@/lib/auth'
+import { checkPlanLimit } from '@/lib/plans'
+import { logAuditAction, extractRequestInfo } from '@/lib/audit-log'
 
 // ============================================================
 // GET /api/linkedin
@@ -31,6 +33,7 @@ export async function GET() {
         headline: true,
         status: true,
         scopes: true,
+        tokenExpiresAt: true,
         lastSyncAt: true,
         createdAt: true,
         updatedAt: true,
@@ -51,11 +54,11 @@ export async function GET() {
 // POST /api/linkedin
 // Crée ou réactive un compte LinkedIn.
 //
-// ⚠️ BUG CORRIGÉ : La contrainte @@unique([userId, organizationId])
-// bloque db.linkedInAccount.create() si un compte désactivé existe
-// déjà pour ce couple (user, org). On utilise upsert() pour :
-//   - créer le compte s'il n'existe pas
-//   - réactiver + refresh le token s'il existe (même désactivé)
+// ⚠️ SÉCURITÉ : Cette route accepte un accessToken directement dans le body,
+// ce qui contourne le flow OAuth normal. Elle est donc RESTREINTE aux admins
+// (pour les flows automatisés/test/migration).
+//
+// Les utilisateurs normaux doivent passer par GET /api/linkedin/auth → OAuth → callback.
 // ============================================================
 export async function POST(request: Request) {
   try {
@@ -64,6 +67,37 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, error: 'Non authentifié' },
         { status: 401 }
+      )
+    }
+
+    // ⚠️ RESTRICTION ADMIN : Seuls les admins peuvent injecter un token directement
+    // Les utilisateurs normaux doivent passer par le flow OAuth (GET /api/linkedin/auth)
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { role: true, email: true, plan: true, trialEndsAt: true },
+    })
+    if (!user || user.role !== 'admin') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Cette route est réservée aux administrateurs. Utilisez le flow OAuth (GET /api/linkedin/auth) pour connecter votre compte LinkedIn.',
+        },
+        { status: 403 }
+      )
+    }
+
+    // ⭐ Plan limit check (même pour admin, pour cohérence)
+    const trialActive = user.trialEndsAt ? new Date(user.trialEndsAt) > new Date() : false
+    const effectivePlan = trialActive ? 'pro' : (user.plan || 'free')
+    const planCheck = await checkPlanLimit(userId, 'linkedinAccounts')
+    if (!planCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Limite de comptes LinkedIn atteinte (${planCheck.current}/${planCheck.limit}). Passez au plan supérieur.`,
+          upgrade: true,
+        },
+        { status: 402 }
       )
     }
 
@@ -129,6 +163,19 @@ export async function POST(request: Request) {
         status: 'active',
         lastSyncAt: new Date(),
       },
+    })
+
+    // Audit log (admin action)
+    const { ipAddress, userAgent } = extractRequestInfo(request)
+    await logAuditAction({
+      actorId: userId,
+      actorEmail: user.email,
+      action: 'linkedin.account.inject_token',
+      targetType: 'LinkedInAccount',
+      targetId: account.id,
+      details: { organizationId, displayName },
+      ipAddress,
+      userAgent,
     })
 
     // Ne pas renvoyer le token au client
