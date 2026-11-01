@@ -70,7 +70,60 @@ export async function POST(request: Request) {
     if (!userId) return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
     const body = await request.json()
     if (!body.name) return NextResponse.json({ success: false, error: 'Nom requis' }, { status: 400 })
-    const prospect = await db.prospect.create({ data: { userId, name: body.name, linkedinUrl: body.linkedinUrl || null, email: body.email || null, company: body.company || null, title: body.title || null, notes: body.notes || null, tags: body.tags || null, stage: body.stage || 'new' } })
+
+    // ⭐ Dedup check (B4 fix — same 3-key logic as import route)
+    const email = body.email ? String(body.email).trim().toLowerCase() : null
+    const linkedinUrl = body.linkedinUrl ? String(body.linkedinUrl).trim() : null
+    const name = String(body.name).trim()
+    const company = body.company ? String(body.company).trim() : null
+
+    const dedupWhere: any[] = [{ name: { equals: name, mode: 'insensitive' } }]
+    if (email) dedupWhere.push({ email })
+    if (linkedinUrl) dedupWhere.push({ linkedinUrl })
+    if (company) dedupWhere.push({ name: { equals: name, mode: 'insensitive' }, company: { equals: company, mode: 'insensitive' } })
+
+    const existing = await db.prospect.findFirst({
+      where: { userId, OR: dedupWhere },
+      select: { id: true, name: true, email: true, linkedinUrl: true },
+    })
+
+    if (existing) {
+      let reason = 'nom similaire'
+      if (email && existing.email === email) reason = 'email existant'
+      else if (linkedinUrl && existing.linkedinUrl === linkedinUrl) reason = 'URL LinkedIn existante'
+      else if (company) reason = 'nom + entreprise existants'
+
+      return NextResponse.json({
+        success: false,
+        error: `Doublon détecté (${reason}): ${existing.name}`,
+        duplicateId: existing.id,
+        duplicate: existing,
+      }, { status: 409 })
+    }
+
+    const prospect = await db.prospect.create({
+      data: {
+        userId,
+        name,
+        linkedinUrl: linkedinUrl || null,
+        email: email || null,
+        company: company || null,
+        title: body.title || null,
+        notes: body.notes || null,
+        tags: body.tags || null,
+        stage: body.stage || 'new',
+      },
+    })
+
+    // Score the new prospect
+    try {
+      // Import inline to avoid circular dependency
+      const { scoreProspect } = await import('@/lib/prospect-scoring')
+      await scoreProspect(prospect.id)
+    } catch {
+      // Scoring failure should not block creation
+    }
+
     return NextResponse.json({ success: true, data: prospect }, { status: 201 })
   } catch (e: any) { return NextResponse.json({ success: false, error: e.message }, { status: 500 }) }
 }

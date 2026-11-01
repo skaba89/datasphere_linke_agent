@@ -109,7 +109,7 @@ export function CrmCopilotTab() {
         return <span key={j}>{p}</span>
       })
       if (line.startsWith('• ') || line.startsWith('- ')) {
-        return <div key={i} className="flex gap-2 ml-2"><span className="text-emerald-500">•</span><span>{rendered.slice(0, 1).map((_, idx) => <span key={idx}>{parts.slice(1)}</span>)}{line.slice(2)}</span></div>
+        return <div key={i} className="flex gap-2 ml-2"><span className="text-emerald-500">•</span><span>{rendered.slice(1)}</span></div>
       }
       if (line.startsWith('---')) {
         return <hr key={i} className="my-2 border-slate-200" />
