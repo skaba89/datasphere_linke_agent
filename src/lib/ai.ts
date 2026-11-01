@@ -4,7 +4,7 @@ import { generateChat } from '@/lib/ai-providers'
 // AI Service - Génération de posts LinkedIn via LLM
 //
 // Supporte plusieurs providers via ai-providers.ts :
-//   Gemini, GLM, Groq, OpenRouter, fallback z-ai-web-dev-sdk
+//   Gemini, GLM, Groq, OpenRouter, Z.ai (chat.z.ai natif)
 // ============================================================
 
 export interface GenerateParams {
