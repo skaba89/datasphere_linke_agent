@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUserId } from '@/lib/auth'
+import { logAuditAction, extractRequestInfo } from '@/lib/audit-log'
 
 // ============================================================
 // PATCH /api/admin/users/[id]
@@ -17,7 +18,10 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
     }
 
-    const admin = await db.user.findUnique({ where: { id: adminId }, select: { role: true } })
+    const admin = await db.user.findUnique({
+      where: { id: adminId },
+      select: { role: true, email: true },
+    })
     if (!admin || admin.role !== 'admin') {
       return NextResponse.json({ success: false, error: 'Admin uniquement' }, { status: 403 })
     }
@@ -29,8 +33,15 @@ export async function PATCH(
     const allowedRoles = ['user', 'admin']
 
     const data: any = {}
-    if (body.plan && allowedPlans.includes(body.plan)) data.plan = body.plan
-    if (body.role && allowedRoles.includes(body.role)) data.role = body.role
+    const auditDetails: any = {}
+    if (body.plan && allowedPlans.includes(body.plan)) {
+      data.plan = body.plan
+      auditDetails.newPlan = body.plan
+    }
+    if (body.role && allowedRoles.includes(body.role)) {
+      data.role = body.role
+      auditDetails.newRole = body.role
+    }
 
     if (Object.keys(data).length === 0) {
       return NextResponse.json({ success: false, error: 'Rien à mettre à jour' }, { status: 400 })
@@ -40,6 +51,20 @@ export async function PATCH(
       where: { id },
       data,
       select: { id: true, email: true, name: true, plan: true, role: true },
+    })
+
+    // Audit log
+    const { ipAddress, userAgent } = extractRequestInfo(request)
+    const action = data.plan ? 'user.changePlan' : 'user.changeRole'
+    await logAuditAction({
+      actorId: adminId,
+      actorEmail: admin.email,
+      action,
+      targetType: 'User',
+      targetId: id,
+      details: { ...auditDetails, targetEmail: updated.email },
+      ipAddress,
+      userAgent,
     })
 
     return NextResponse.json({ success: true, data: updated })
@@ -63,7 +88,10 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
     }
 
-    const admin = await db.user.findUnique({ where: { id: adminId }, select: { role: true } })
+    const admin = await db.user.findUnique({
+      where: { id: adminId },
+      select: { role: true, email: true },
+    })
     if (!admin || admin.role !== 'admin') {
       return NextResponse.json({ success: false, error: 'Admin uniquement' }, { status: 403 })
     }
@@ -75,7 +103,25 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: 'Impossible de se supprimer soi-même' }, { status: 400 })
     }
 
+    const targetUser = await db.user.findUnique({
+      where: { id },
+      select: { email: true },
+    })
+
     await db.user.delete({ where: { id } })
+
+    // Audit log
+    const { ipAddress, userAgent } = extractRequestInfo(request)
+    await logAuditAction({
+      actorId: adminId,
+      actorEmail: admin.email,
+      action: 'user.delete',
+      targetType: 'User',
+      targetId: id,
+      details: { targetEmail: targetUser?.email },
+      ipAddress,
+      userAgent,
+    })
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
