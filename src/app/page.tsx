@@ -14,7 +14,7 @@ import {
   Bot, BarChart as BarChartIcon, Calendar, UserCheck, Rocket, Heart,
   MousePointer, Activity, User, Network, Search, FileCode, ScrollText,
   FileBarChart, Filter, MessageSquare, Zap as ZapIcon,
-  Wand2, Gauge, Cpu
+  Wand2, Gauge, Cpu, DollarSign
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,6 +32,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { LinkedInAccountSwitcher } from '@/components/linkedin-account-switcher'
 import { NotificationBell } from '@/components/notification-bell'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { AgencyDashboard } from '@/components/agency-dashboard'
 import { CalendarTab, TemplatesTab, LogsTab, ReportsTab, AgentIATab, ProfileTab, ComingSoonTab, ProspectingTab, PipelineTab, CrmTab, NetworkingTab, MessagesTab } from '@/components/dashboard-tabs'
 import { CommentsTab } from '@/components/comments-tab'
@@ -39,6 +40,8 @@ import { ScoutTab } from '@/components/scout-tab'
 import { BrandStudioTab, ContentQualityTab, MultiAICompareTab } from '@/components/brand-studio-tabs'
 import { PerformanceIntelligenceTab } from '@/components/performance-intelligence-tab'
 import { AgencyCommandCenterTab } from '@/components/agency-command-center-tab'
+import { CrmCopilotTab } from '@/components/crm-copilot-tab'
+import { RevenueAttributionTab } from '@/components/revenue-attribution-tab'
 import { toast } from 'sonner'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -322,6 +325,7 @@ export default function Home() {
         { id: 'prospecting', label: 'Prospecting', icon: Target },
         { id: 'pipeline', label: 'Pipeline Prospects', icon: Filter },
         { id: 'crm', label: 'CRM Séquences', icon: Mail },
+        { id: 'crm-copilot', label: 'CRM Copilot IA', icon: Bot },
         { id: 'networking', label: 'Networking', icon: Network },
       ],
     },
@@ -341,6 +345,7 @@ export default function Home() {
       title: 'Gestion',
       items: [
         { id: 'agency-cc', label: 'Agency Command', icon: Layers },
+        { id: 'revenue', label: 'Revenue Attribution', icon: DollarSign },
         { id: 'logs', label: 'Logs', icon: ScrollText },
         { id: 'reports', label: 'Rapports', icon: FileBarChart },
         { id: 'settings', label: 'Paramètres', icon: Settings },
@@ -388,6 +393,7 @@ export default function Home() {
                 LinkedIn
               </a>
             )}
+            <ThemeToggle />
             <NotificationBell />
           </div>
         </div>
@@ -410,6 +416,7 @@ export default function Home() {
             </a>
           )}
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <NotificationBell />
             <a href="/settings" className="p-2 rounded-lg hover:bg-slate-100 transition-colors">
               <Settings className="h-5 w-5 text-slate-600" />
@@ -455,6 +462,11 @@ export default function Home() {
             {activeTab === 'agency-cc' && (
               <motion.div key="agency-cc" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
                 <AgencyCommandCenterTab />
+              </motion.div>
+            )}
+            {activeTab === 'revenue' && (
+              <motion.div key="revenue" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+                <RevenueAttributionTab />
               </motion.div>
             )}
             {activeTab === 'settings' && (
@@ -536,6 +548,11 @@ export default function Home() {
             {activeTab === 'crm' && (
               <motion.div key="crm" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
                 <CrmTab />
+              </motion.div>
+            )}
+            {activeTab === 'crm-copilot' && (
+              <motion.div key="crm-copilot" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="h-full">
+                <CrmCopilotTab />
               </motion.div>
             )}
             {activeTab === 'networking' && (
@@ -1339,6 +1356,7 @@ function PlaceholderTab({ tabId }: { tabId: string }) {
     'prospecting': { title: 'Prospecting', description: 'Trouvez de nouveaux prospects sur LinkedIn', icon: Target },
     'pipeline': { title: 'Pipeline Prospects', description: 'Suivez vos prospects dans le funnel de conversion', icon: Filter },
     'crm': { title: 'CRM Séquences', description: 'Automatisez vos séquences de messages', icon: Mail },
+    'crm-copilot': { title: 'CRM Copilot IA', description: 'Agent IA avec contexte complet prospects/clients/messages', icon: Bot },
     'networking': { title: 'Networking', description: 'Développez votre réseau LinkedIn', icon: Network },
     'agent-ia': { title: 'Agent IA', description: 'Votre assistant IA pour LinkedIn', icon: Bot },
     'mission-scout': { title: 'Mission Scout', description: 'Identifiez les opportunités et tendances', icon: Search },
@@ -1347,6 +1365,7 @@ function PlaceholderTab({ tabId }: { tabId: string }) {
     'ai-compare': { title: 'Multi-IA Comparison', description: 'Comparez les réponses de tous les providers IA en parallèle', icon: Cpu },
     'performance': { title: 'Performance Intelligence', description: 'Analytics avancés + recommandations IA personnalisées', icon: Activity },
     'agency-cc': { title: 'Agency Command Center', description: 'Vue stratégique multi-clients avec KPIs, alertes et tendances', icon: Layers },
+    'revenue': { title: 'Revenue Attribution', description: 'Attribuez et suivez le revenu par client et par prospect', icon: DollarSign },
     'templates-ia': { title: 'Templates IA', description: 'Bibliothèque de templates de posts par industrie', icon: FileCode },
     'logs': { title: 'Logs', description: 'Historique des actions et erreurs', icon: ScrollText },
     'reports': { title: 'Rapports', description: 'Rapports de performance détaillés', icon: FileBarChart },

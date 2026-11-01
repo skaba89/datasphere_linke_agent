@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { SentryProvider } from "@/components/sentry-provider";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,15 +47,32 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Anti-flash script: applies the saved theme before hydration
+  const themeScript = `
+    (function() {
+      try {
+        var t = localStorage.getItem('datasphere-theme');
+        if (!t) {
+          t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        if (t === 'dark') document.documentElement.classList.add('dark');
+      } catch (e) {}
+    })();
+  `;
   return (
     <html lang="fr" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <SentryProvider>
-          {children}
-          <Toaster />
-        </SentryProvider>
+        <ThemeProvider>
+          <SentryProvider>
+            {children}
+            <Toaster />
+          </SentryProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

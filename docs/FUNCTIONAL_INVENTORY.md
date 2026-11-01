@@ -50,22 +50,22 @@
 | Automation | Comment replies, CRM sequences | Source de commentaires (Chrome ext ou webhook) |
 | Multi-IA | 5 providers (Gemini/GLM/Groq/OpenRouter/z-ai), comparaison parallèle, fallback | Sélection manuelle du provider actif |
 | Networking | Stats, liste prospects | Import CSV spécifique (au pipeline networking) |
-| Agency | Dashboard multi-clients, **Agency Command Center (KPIs + alertes + top/retard)** | Attribution revenue par client |
+| Agency | Dashboard multi-clients, Agency Command Center, **Revenue Attribution Studio** | Audit log des actions |
 
 ### ❌ NON FONCTIONNEL / ABSENT
 
 | Module | Statut | Priorité |
 |---|---|---|
 | LinkedIn Performance Intelligence | ✅ Implémenté (P3-2) | Done |
-| AI CRM Copilot | Partiel (Agent IA) | P3 |
+| AI CRM Copilot | ✅ Implémenté (P4) | Done |
 | Agency Command Center | ✅ Implémenté (P3-2) | Done |
-| Revenue Attribution Studio | Absent | P4 |
+| Revenue Attribution Studio | ✅ Implémenté (P4) | Done |
+| Dark mode | ✅ Implémenté (P4) | Done |
 | AI Agent Workspace | Absent | P4 |
 | MCP Server | Absent | P4 |
 | Chrome Extension | Absent | P4 |
 | Email-to-LinkedIn Bridge | Absent | P4 |
 | Multi-langue (i18n) | Absent | P4 |
-| Dark mode | Absent | P4 |
 
 ### ✅ NOUVEAUX MODULES P3 (ajoutés)
 
@@ -79,6 +79,9 @@
 | **Teams Permissions granulaires** | `/api/teams/assignments`, `/api/teams/accessible-clients` | /team page | ✅ UI + API + migration DB |
 | **Performance Intelligence** | `/api/performance-intelligence` (GET + POST) | Performance IA tab | ✅ UI + API + reco IA (Pro+) |
 | **Agency Command Center** | `/api/agency-command-center` | Agency Command tab | ✅ UI + API + plan gate (Business+) |
+| **CRM Copilot IA** | `/api/ai/crm-copilot` | CRM Copilot IA tab | ✅ UI + API + plan gate (Pro+) |
+| **Revenue Attribution Studio** | `/api/revenue-attribution` + `/[id]` | Revenue Attribution tab | ✅ UI + API + plan gate (Business+) + migration DB |
+| **Dark mode** | — | Theme toggle (header) | ✅ ThemeProvider + anti-flash script + localStorage |
 
 ## Dépendances externes
 

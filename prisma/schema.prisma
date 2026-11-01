@@ -52,6 +52,9 @@ model User {
   // API publique (Plan Business)
   apiKeys          ApiKey[]
 
+  // Revenue Attribution
+  revenueAttributions RevenueAttribution[] @relation("UserRevenue")
+
   // Affiliation
   referralCode    String?    @unique // code personnalisé (ex: "marie2026")
   referredById    String?    // user qui a référé ce user
@@ -103,6 +106,7 @@ model Client {
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   posts           PostProposal[] @relation("ClientPosts")
   assignments     ClientAssignment[]
+  revenueAttributions RevenueAttribution[] @relation("ClientRevenue")
 
   @@index([userId])
   @@index([active])
@@ -128,6 +132,7 @@ model Prospect {
 
   user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages    CrmMessage[]
+  revenueAttributions RevenueAttribution[] @relation("ProspectRevenue")
 
   @@index([userId])
   @@index([stage])
@@ -350,6 +355,31 @@ model ClientAssignment {
   @@unique([clientId, teamMemberId])
   @@index([clientId])
   @@index([teamMemberId])
+}
+
+// ============================================================
+// REVENUE ATTRIBUTION (P4 — revenu par client/prospect)
+// ============================================================
+model RevenueAttribution {
+  id            String   @id @default(cuid())
+  userId        String
+  clientId      String?
+  prospectId    String?
+  amountCents   Int      // montant en centimes (ex: 9999 = 99,99 €)
+  currency      String   @default("EUR")
+  source        String   @default("manual") // manual | stripe | import
+  description   String?
+  attributedAt  DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  user          User       @relation("UserRevenue", fields: [userId], references: [id], onDelete: Cascade)
+  client        Client?    @relation("ClientRevenue", fields: [clientId], references: [id], onDelete: SetNull)
+  prospect      Prospect?  @relation("ProspectRevenue", fields: [prospectId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([clientId])
+  @@index([prospectId])
+  @@index([attributedAt])
 }
 
 model TeamInvitation {
