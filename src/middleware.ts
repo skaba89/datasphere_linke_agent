@@ -76,6 +76,18 @@ const PUBLIC_PATHS = [
   '/api/linkedin/callback',
 ]
 
+// Prefixes de routes publiques (pour les routes dynamiques /legal/*, /blog/*, etc.)
+const PUBLIC_PREFIXES = [
+  '/legal/',
+  '/blog/',
+  '/affiliate',
+]
+
+function isPublicPath(pathname: string): boolean {
+  if (PUBLIC_PATHS.includes(pathname)) return true
+  return PUBLIC_PREFIXES.some(prefix => pathname.startsWith(prefix))
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -97,7 +109,7 @@ export async function middleware(request: NextRequest) {
   const isAuthenticated = await verifySession(sessionCookie)
 
   // Pages publiques
-  if (PUBLIC_PATHS.includes(pathname)) {
+  if (isPublicPath(pathname)) {
     // Si déjà connecté et sur /login ou /register, rediriger vers /
     if ((pathname === '/login' || pathname === '/register') && isAuthenticated) {
       return NextResponse.redirect(new URL('/', request.url))

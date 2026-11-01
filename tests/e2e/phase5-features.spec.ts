@@ -69,93 +69,102 @@ test.describe('Phase 5 — MCP Server + Chrome Extension endpoint', () => {
     // Pro trial → 403 (Business required for API keys)
     expect([403, 201]).toContain(keyRes.status())
 
-    if (keyRes.status() === 201) {
-      const keyData = await keyRes.json()
-      const apiKey = keyData.data.key
-
-      // Test initialize
-      const initRes = await request.post('/api/mcp', {
-        headers: { Authorization: `Bearer ${apiKey}` },
+    if (keyRes.status() !== 201) {
+      // Plan gate active (403) — skip the MCP flow test, just verify
+      // that without a valid API key the MCP endpoint returns 401
+      const noKeyRes = await request.post('/api/mcp', {
+        headers: { Authorization: 'Bearer dsk_live_fake' },
         data: { jsonrpc: '2.0', id: 1, method: 'initialize' },
       })
-      expect(initRes.status()).toBe(200)
-      const initData = await initRes.json()
-      expect(initData.jsonrpc).toBe('2.0')
-      expect(initData.id).toBe(1)
-      expect(initData.result).toBeDefined()
-      expect(initData.result.capabilities).toBeDefined()
-      expect(initData.result.capabilities.tools).toBeDefined()
-      expect(initData.result.serverInfo.name).toBe('datasphere-mcp')
-
-      // Test tools/list
-      const listRes = await request.post('/api/mcp', {
-        headers: { Authorization: `Bearer ${apiKey}` },
-        data: { jsonrpc: '2.0', id: 2, method: 'tools/list' },
-      })
-      expect(listRes.status()).toBe(200)
-      const listData = await listRes.json()
-      expect(listData.result.tools).toBeDefined()
-      expect(Array.isArray(listData.result.tools)).toBe(true)
-      expect(listData.result.tools.length).toBeGreaterThan(0)
-
-      // Verify expected tools are present
-      const toolNames = listData.result.tools.map((t: any) => t.name)
-      expect(toolNames).toContain('list_posts')
-      expect(toolNames).toContain('create_post')
-      expect(toolNames).toContain('list_prospects')
-      expect(toolNames).toContain('get_analytics')
-      expect(toolNames).toContain('list_clients')
-
-      // Test tools/call with list_posts
-      const callRes = await request.post('/api/mcp', {
-        headers: { Authorization: `Bearer ${apiKey}` },
-        data: {
-          jsonrpc: '2.0',
-          id: 3,
-          method: 'tools/call',
-          params: { name: 'list_posts', arguments: { limit: 5 } },
-        },
-      })
-      expect(callRes.status()).toBe(200)
-      const callData = await callRes.json()
-      expect(callData.result).toBeDefined()
-      expect(callData.result.content).toBeDefined()
-      expect(callData.result.content[0].type).toBe('text')
-
-      // Test ping
-      const pingRes = await request.post('/api/mcp', {
-        headers: { Authorization: `Bearer ${apiKey}` },
-        data: { jsonrpc: '2.0', id: 4, method: 'ping' },
-      })
-      expect(pingRes.status()).toBe(200)
-      const pingData = await pingRes.json()
-      expect(pingData.result).toEqual({})
-
-      // Test unknown method
-      const unknownRes = await request.post('/api/mcp', {
-        headers: { Authorization: `Bearer ${apiKey}` },
-        data: { jsonrpc: '2.0', id: 5, method: 'unknown/method' },
-      })
-      expect(unknownRes.status()).toBe(200)
-      const unknownData = await unknownRes.json()
-      expect(unknownData.error).toBeDefined()
-      expect(unknownData.error.code).toBe(-32601)
-
-      // Test unknown tool
-      const unknownToolRes = await request.post('/api/mcp', {
-        headers: { Authorization: `Bearer ${apiKey}` },
-        data: {
-          jsonrpc: '2.0',
-          id: 6,
-          method: 'tools/call',
-          params: { name: 'nonexistent_tool', arguments: {} },
-        },
-      })
-      expect(unknownToolRes.status()).toBe(200)
-      const unknownToolData = await unknownToolRes.json()
-      expect(unknownToolData.error).toBeDefined()
-      expect(unknownToolData.error.code).toBe(-32601)
+      expect(noKeyRes.status()).toBe(401)
+      return
     }
+
+    const keyData = await keyRes.json()
+    const apiKey = keyData.data.key
+
+    // Test initialize
+    const initRes = await request.post('/api/mcp', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      data: { jsonrpc: '2.0', id: 1, method: 'initialize' },
+    })
+    expect(initRes.status()).toBe(200)
+    const initData = await initRes.json()
+    expect(initData.jsonrpc).toBe('2.0')
+    expect(initData.id).toBe(1)
+    expect(initData.result).toBeDefined()
+    expect(initData.result.capabilities).toBeDefined()
+    expect(initData.result.capabilities.tools).toBeDefined()
+    expect(initData.result.serverInfo.name).toBe('datasphere-mcp')
+
+    // Test tools/list
+    const listRes = await request.post('/api/mcp', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      data: { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+    })
+    expect(listRes.status()).toBe(200)
+    const listData = await listRes.json()
+    expect(listData.result.tools).toBeDefined()
+    expect(Array.isArray(listData.result.tools)).toBe(true)
+    expect(listData.result.tools.length).toBeGreaterThan(0)
+
+    // Verify expected tools are present
+    const toolNames = listData.result.tools.map((t: any) => t.name)
+    expect(toolNames).toContain('list_posts')
+    expect(toolNames).toContain('create_post')
+    expect(toolNames).toContain('list_prospects')
+    expect(toolNames).toContain('get_analytics')
+    expect(toolNames).toContain('list_clients')
+
+    // Test tools/call with list_posts
+    const callRes = await request.post('/api/mcp', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      data: {
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: { name: 'list_posts', arguments: { limit: 5 } },
+      },
+    })
+    expect(callRes.status()).toBe(200)
+    const callData = await callRes.json()
+    expect(callData.result).toBeDefined()
+    expect(callData.result.content).toBeDefined()
+    expect(callData.result.content[0].type).toBe('text')
+
+    // Test ping
+    const pingRes = await request.post('/api/mcp', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      data: { jsonrpc: '2.0', id: 4, method: 'ping' },
+    })
+    expect(pingRes.status()).toBe(200)
+    const pingData = await pingRes.json()
+    expect(pingData.result).toEqual({})
+
+    // Test unknown method
+    const unknownRes = await request.post('/api/mcp', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      data: { jsonrpc: '2.0', id: 5, method: 'unknown/method' },
+    })
+    expect(unknownRes.status()).toBe(200)
+    const unknownData = await unknownRes.json()
+    expect(unknownData.error).toBeDefined()
+    expect(unknownData.error.code).toBe(-32601)
+
+    // Test unknown tool
+    const unknownToolRes = await request.post('/api/mcp', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      data: {
+        jsonrpc: '2.0',
+        id: 6,
+        method: 'tools/call',
+        params: { name: 'nonexistent_tool', arguments: {} },
+      },
+    })
+    expect(unknownToolRes.status()).toBe(200)
+    const unknownToolData = await unknownToolRes.json()
+    expect(unknownToolData.error).toBeDefined()
+    expect(unknownToolData.error.code).toBe(-32601)
   })
 
   test('mcp: invalid jsonrpc version returns error', async ({ request }) => {

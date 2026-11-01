@@ -29,9 +29,16 @@ export async function GET(request: Request) {
     const status = searchParams.get('status') || undefined
 
     // Decode cursor to get the last item's id
+    // If a cursor is provided but doesn't decode properly, return 400
     const cursorId = cursor ? decodeCursor(cursor) : null
+    if (cursor && !cursorId) {
+      return NextResponse.json(
+        { success: false, error: 'Curseur invalide (format incorrect)' },
+        { status: 400 }
+      )
+    }
 
-    // If we have a cursor, fetch the cursor item to get its createdAt
+    // If we have a valid cursor, fetch the cursor item to get its createdAt
     let cursorItem: { id: string; createdAt: Date } | null = null
     if (cursorId) {
       cursorItem = await db.postProposal.findUnique({

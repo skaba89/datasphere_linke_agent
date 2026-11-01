@@ -35,6 +35,9 @@ export async function GET(request: Request) {
     const cursor = searchParams.get('cursor') || undefined
 
     const cursorId = cursor ? decodeCursor(cursor) : null
+    if (cursor && !cursorId) {
+      return NextResponse.json({ success: false, error: 'Curseur invalide (format incorrect)' }, { status: 400 })
+    }
     let cursorItem: { id: string; createdAt: Date } | null = null
     if (cursorId) {
       cursorItem = await db.auditLog.findUnique({
@@ -42,7 +45,7 @@ export async function GET(request: Request) {
         select: { id: true, createdAt: true },
       })
       if (!cursorItem) {
-        return NextResponse.json({ success: false, error: 'Curseur invalide' }, { status: 400 })
+        return NextResponse.json({ success: false, error: 'Curseur invalide ou expiré' }, { status: 400 })
       }
     }
 
