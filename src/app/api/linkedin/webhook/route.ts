@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { timingSafeEqual } from 'node:crypto'
 import { db } from '@/lib/db'
 import { logger } from '@/lib/logger'
 
@@ -19,12 +20,21 @@ export async function POST(request: Request) {
     const body = await request.json()
 
     // Vérification du secret partagé (header X-LinkedIn-Webhook-Secret)
+    // Utilise timingSafeEqual pour éviter les timing attacks
     const secret = request.headers.get('x-linkedin-webhook-secret')
     const expectedSecret = process.env.LINKEDIN_WEBHOOK_SECRET
 
-    if (expectedSecret && secret !== expectedSecret) {
-      logger.warn({ route: 'linkedin/webhook' }, 'Unauthorized webhook')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (expectedSecret) {
+      if (!secret) {
+        logger.warn({ route: 'linkedin/webhook' }, 'Missing webhook secret header')
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      const a = Buffer.from(secret)
+      const b = Buffer.from(expectedSecret)
+      if (a.length !== b.length || !timingSafeEqual(a, b)) {
+        logger.warn({ route: 'linkedin/webhook' }, 'Invalid webhook secret')
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
     }
 
     logger.info({ route: 'linkedin/webhook', body }, 'LinkedIn webhook received')

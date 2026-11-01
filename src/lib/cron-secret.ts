@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto'
+import { createHmac, timingSafeEqual } from 'node:crypto'
 
 // ============================================================
 // Cron Secret Helper
@@ -38,16 +38,24 @@ export function getCronSecret(): string | null {
 
 // ============================================================
 // Vérifier un header Authorization pour un cron
+// Utilise timingSafeEqual pour éviter les timing attacks
 // ============================================================
 export function verifyCronAuth(authHeader: string | null): boolean {
   const secret = getCronSecret()
-  if (!secret) return false
+  if (!secret || !authHeader) return false
 
-  // Accepter "Bearer XXX"
-  if (authHeader === `Bearer ${secret}`) return true
+  // Accepter "Bearer XXX" ou juste "XXX"
+  const token = authHeader.startsWith('Bearer ')
+    ? authHeader.substring(7)
+    : authHeader
 
-  // Accepter aussi juste le secret (sans prefix Bearer)
-  if (authHeader === secret) return true
-
-  return false
+  // timingSafeEqual requires equal-length buffers
+  const a = Buffer.from(token)
+  const b = Buffer.from(secret)
+  if (a.length !== b.length) return false
+  try {
+    return timingSafeEqual(a, b)
+  } catch {
+    return false
+  }
 }

@@ -105,8 +105,55 @@ async function tryPublishForUser(settings: any): Promise<{ published: boolean; r
     return { published: false, reason: 'no_linkedin_account' }
   }
 
-  // 2. Vérifier la timezone et l'heure actuelle
   const now = new Date()
+
+  // ⭐ PRIORITY 1: Publier les posts avec scheduledFor <= now (per-post scheduling)
+  // Ces posts sont publiés quel que soit le Smart Poster window
+  const scheduledProposal = await db.postProposal.findFirst({
+    where: {
+      userId: user.id,
+      status: 'approved',
+      scheduledFor: { lte: now },
+      publishedAt: null,
+    },
+    orderBy: [{ scheduledFor: 'asc' }, { createdAt: 'asc' }],
+  })
+
+  if (scheduledProposal) {
+    const account = user.linkedinAccounts[0]
+    const result = await publishPostToLinkedIn({
+      encryptedAccessToken: account.accessToken,
+      organizationId: account.organizationId,
+      proposalId: scheduledProposal.id,
+      content: scheduledProposal.content + (scheduledProposal.hashtags ? `\n\n${scheduledProposal.hashtags}` : ''),
+      userId: user.id,
+    })
+
+    if (!result.success) {
+      logger.warn({
+        userId: user.id,
+        proposalId: scheduledProposal.id,
+        error: result.error,
+      }, 'Scheduled (per-post) publish failed')
+      return { published: false, reason: 'publish_failed' }
+    }
+
+    logger.info({
+      userId: user.id,
+      proposalId: scheduledProposal.id,
+      linkedinPostId: result.linkedinPostId,
+      scheduledFor: scheduledProposal.scheduledFor,
+    }, 'Per-post scheduled publish success')
+
+    return { published: true }
+  }
+
+  // ⭐ PRIORITY 2: Smart Poster auto-publish (si activé)
+  if (!settings.autoApprove && !settings.enabled) {
+    return { published: false, reason: 'smart_poster_disabled' }
+  }
+
+  // 2. Vérifier la timezone et l'heure actuelle
   const userTime = new Date(now.toLocaleString('en-US', { timeZone: settings.timezone || 'Europe/Paris' }))
   const currentHour = userTime.getHours()
 
@@ -137,9 +184,14 @@ async function tryPublishForUser(settings: any): Promise<{ published: boolean; r
     return { published: false, reason: 'max_posts_reached' }
   }
 
-  // 4. Récupérer la meilleure proposal approuvée non publiée
+  // 4. Récupérer la meilleure proposal approuvée non publiée (sans scheduledFor)
   const proposal = await db.postProposal.findFirst({
-    where: { userId: user.id, status: 'approved', publishedAt: null },
+    where: {
+      userId: user.id,
+      status: 'approved',
+      publishedAt: null,
+      scheduledFor: null, // Exclure les posts planifiés (gérés par la priority 1)
+    },
     orderBy: [{ qualityScore: 'desc' }, { createdAt: 'asc' }],
   })
 
@@ -147,10 +199,7 @@ async function tryPublishForUser(settings: any): Promise<{ published: boolean; r
     return { published: false, reason: 'no_approved_proposals' }
   }
 
-  // 5. Si autoApprove=false, on ne publie QUE les approved (ce qui est le cas)
-  // Si autoApprove=true, on devrait aussi publier les pending (mais on garde 'approved' pour la safety)
-
-  // 6. Publier sur LinkedIn (passe le token chiffré, le publisher déchiffre)
+  // 5. Publier sur LinkedIn (passe le token chiffré, le publisher déchiffre)
   const account = user.linkedinAccounts[0]
   const result = await publishPostToLinkedIn({
     encryptedAccessToken: account.accessToken,
@@ -173,7 +222,7 @@ async function tryPublishForUser(settings: any): Promise<{ published: boolean; r
     userId: user.id,
     proposalId: proposal.id,
     linkedinPostId: result.linkedinPostId,
-  }, 'Scheduled publish success')
+  }, 'Smart Poster auto-publish success')
 
   return { published: true }
 }
