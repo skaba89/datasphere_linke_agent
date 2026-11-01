@@ -50,6 +50,29 @@ export async function POST(request: Request) {
   }
 
   try {
+    // ⭐ IDEMPOTENCE: vérifier si l'événement a déjà été traité
+    const existingLog = await db.automationLog.findFirst({
+      where: {
+        type: 'stripe_webhook',
+        action: event.id,
+      },
+    })
+    if (existingLog) {
+      logger.info({ eventId: event.id, type: event.type }, 'Stripe event already processed (idempotent)')
+      return NextResponse.json({ received: true, idempotent: true })
+    }
+
+    // Marquer l'événement comme traité AVANT le processing
+    // (empêche les double-processing concurrents)
+    await db.automationLog.create({
+      data: {
+        userId: 'system',
+        type: 'stripe_webhook',
+        action: event.id,
+        details: JSON.stringify({ type: event.type, created: event.created }),
+      },
+    })
+
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session

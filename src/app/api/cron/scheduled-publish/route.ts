@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { decryptLinkedInToken } from '@/lib/linkedin-token-crypto'
 import { db } from '@/lib/db'
 import { logger } from '@/lib/logger'
 import { publishPostToLinkedIn } from '@/lib/linkedin-publisher'
@@ -151,10 +150,10 @@ async function tryPublishForUser(settings: any): Promise<{ published: boolean; r
   // 5. Si autoApprove=false, on ne publie QUE les approved (ce qui est le cas)
   // Si autoApprove=true, on devrait aussi publier les pending (mais on garde 'approved' pour la safety)
 
-  // 6. Publier sur LinkedIn
+  // 6. Publier sur LinkedIn (passe le token chiffré, le publisher déchiffre)
   const account = user.linkedinAccounts[0]
   const result = await publishPostToLinkedIn({
-    accessToken: decryptLinkedInToken(account.accessToken),
+    encryptedAccessToken: account.accessToken,
     organizationId: account.organizationId,
     proposalId: proposal.id,
     content: proposal.content + (proposal.hashtags ? `\n\n${proposal.hashtags}` : ''),

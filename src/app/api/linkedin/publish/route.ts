@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { decryptLinkedInToken } from '@/lib/linkedin-token-crypto'
 import { db } from '@/lib/db'
 import { getCurrentUserId } from '@/lib/auth'
 import { checkPlanLimit } from '@/lib/plans'
@@ -118,9 +117,9 @@ export async function POST(request: Request) {
       )
     }
 
-    // 4. ✅ Publication via shared module
+    // 4. ✅ Publication via shared module (passe le token chiffré, le publisher déchiffre)
     const result = await publishPostToLinkedIn({
-      accessToken: decryptLinkedInToken(account.accessToken),
+      encryptedAccessToken: account.accessToken,
       organizationId: account.organizationId,
       proposalId: proposal?.id,
       content: text,

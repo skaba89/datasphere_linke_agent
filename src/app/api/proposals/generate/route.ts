@@ -2,12 +2,12 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUserId } from '@/lib/auth'
 import { generateLinkedInPosts } from '@/lib/ai'
-import { checkPlanLimit } from '@/lib/plans'
+import { checkPlanLimit, checkPlanFeature } from '@/lib/plans'
 import { applyRateLimit, RATE_LIMITS, rateLimitHeaders } from '@/lib/rate-limit'
 
 // ============================================================
 // POST /api/proposals/generate
-// Génère de nouveaux posts LinkedIn via LLM (z-ai-web-dev-sdk)
+// Génère de nouveaux posts LinkedIn via LLM
 //
 // Body optionnel: { count?: number }
 // Utilise les settings de l'utilisateur (topics, tone, audience, language)
@@ -19,6 +19,19 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { success: false, error: 'Non authentifié' },
         { status: 401 }
+      )
+    }
+
+    // ⭐ Vérifier que le plan permet la génération IA (Free = non)
+    const featCheck = await checkPlanFeature(userId, 'aiGeneration')
+    if (!featCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'La génération IA nécessite le plan Pro ou Business. Passez à l\'offre supérieure.',
+          upgrade: true,
+        },
+        { status: 402 }
       )
     }
 
@@ -37,7 +50,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Vérifier les limites du plan
+    // Vérifier les limites du plan (posts/jour)
     const limitCheck = await checkPlanLimit(userId, 'postsPerDay')
     if (!limitCheck.allowed) {
       return NextResponse.json(
@@ -100,3 +113,4 @@ export async function POST(request: Request) {
     )
   }
 }
+
