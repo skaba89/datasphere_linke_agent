@@ -65,11 +65,13 @@ export async function GET() {
       d90: { posts: posts90.length, ...aggregateMetrics(metrics90) },
     }
 
-    // 3. Best time analysis (from publishedAt)
+    // 3. Best time analysis (from publishedAt + real engagement)
+    // Fix B3: use real engagement (likes+comments+shares) not just post count
     const allPublished = posts90
     const dayCount: Record<string, number> = {}
     const hourCount: Record<string, number> = {}
     const dayEngagement: Record<string, number> = {}
+    const hourEngagement: Record<string, number> = {}
     const DAYS_FR = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 
     for (const p of allPublished) {
@@ -78,25 +80,55 @@ export async function GET() {
       const hour = `${d.getHours()}h`
       dayCount[day] = (dayCount[day] || 0) + 1
       hourCount[hour] = (hourCount[hour] || 0) + 1
-      // Try to extract engagement number
-      const match = (p.engagementEst || '').match(/(\d+)/)
-      if (match) dayEngagement[day] = (dayEngagement[day] || 0) + parseInt(match[1], 10)
+      // Use real engagement metrics if available (via raw query fallback)
+      // Fields exist in DB but may not be in the Prisma select due to standalone build issue
+      const likes = (p as any).likes || 0
+      const comments = (p as any).commentsCount || 0
+      const shares = (p as any).shares || 0
+      const engagement = likes + comments + shares
+      dayEngagement[day] = (dayEngagement[day] || 0) + engagement
+      hourEngagement[hour] = (hourEngagement[hour] || 0) + engagement
     }
 
-    const bestDay = Object.entries(dayCount).sort((a, b) => b[1] - a[1])[0]?.[0] || null
-    const bestHour = Object.entries(hourCount).sort((a, b) => b[1] - a[1])[0]?.[0] || null
+    // Fix B3: bestDay/bestHour based on engagement, not post count
+    // Fallback to post count if no engagement data yet
+    const hasEngagementData = Object.values(dayEngagement).some(v => v > 0)
+    const bestDay = hasEngagementData
+      ? Object.entries(dayEngagement).sort((a, b) => b[1] - a[1])[0]?.[0] || null
+      : Object.entries(dayCount).sort((a, b) => b[1] - a[1])[0]?.[0] || null
+    const bestHour = hasEngagementData
+      ? Object.entries(hourEngagement).sort((a, b) => b[1] - a[1])[0]?.[0] || null
+      : Object.entries(hourCount).sort((a, b) => b[1] - a[1])[0]?.[0] || null
 
-    // 4. Top posts by engagement (using title length + content length as proxy if no real metrics)
+    // 4. Top posts by real engagement (fix B2 — was sorting by engagementEst text length)
+    // Use likes + comments + shares, fallback to 0 if not synced yet
     const topPosts = [...posts90]
-      .sort((a, b) => (b.engagementEst || '').length - (a.engagementEst || '').length)
+      .sort((a, b) => {
+        const aEng = ((a as any).likes || 0) + ((a as any).commentsCount || 0) + ((a as any).shares || 0)
+        const bEng = ((b as any).likes || 0) + ((b as any).commentsCount || 0) + ((b as any).shares || 0)
+        return bEng - aEng
+      })
       .slice(0, 5)
-      .map(p => ({
-        id: p.id,
-        title: p.title,
-        preview: p.content.slice(0, 120) + (p.content.length > 120 ? '...' : ''),
-        publishedAt: p.publishedAt?.toISOString() || null,
-        engagement: p.engagementEst || 'N/A',
-      }))
+      .map(p => {
+        const likes = (p as any).likes || 0
+        const comments = (p as any).commentsCount || 0
+        const shares = (p as any).shares || 0
+        const views = (p as any).views || 0
+        const totalEngagement = likes + comments + shares
+        return {
+          id: p.id,
+          title: p.title,
+          preview: p.content.slice(0, 120) + (p.content.length > 120 ? '...' : ''),
+          publishedAt: p.publishedAt?.toISOString() || null,
+          engagement: totalEngagement > 0
+            ? `${totalEngagement} interactions (${likes}❤ ${comments}💬 ${shares}🔄)`
+            : p.engagementEst || 'Non synchronisé',
+          likes,
+          comments,
+          shares,
+          views,
+        }
+      })
 
     // 5. Content velocity (posts per week)
     const weeksIn90 = 90 / 7
@@ -179,7 +211,24 @@ export async function POST() {
     const totalComments = metrics30.reduce((s, m) => s + m.comments, 0)
     const totalShares = metrics30.reduce((s, m) => s + m.shares, 0)
     const totalViews = metrics30.reduce((s, m) => s + m.views, 0)
-    const engagementRate = totalViews > 0 ? ((totalLikes + totalComments + totalShares) / totalViews * 100).toFixed(2) : '0'
+
+    // Fix B12: when totalViews is 0 (personal LinkedIn accounts — socialActions API
+    // doesn't return views), compute a proxy engagement rate based on posts count
+    // instead of sending 0% to the LLM (which biases all recommendations).
+    let engagementRate: string
+    let engagementRateNote: string | undefined
+    if (totalViews > 0) {
+      engagementRate = ((totalLikes + totalComments + totalShares) / totalViews * 100).toFixed(2)
+    } else if (posts30.length > 0) {
+      // Proxy: average interactions per post
+      const totalInteractions = totalLikes + totalComments + totalShares
+      const avgPerPost = (totalInteractions / posts30.length).toFixed(1)
+      engagementRate = `${avgPerPost} interactions/post`
+      engagementRateNote = "LinkedIn ne fournit pas les vues pour les comptes personnels — taux basé sur les interactions par post"
+    } else {
+      engagementRate = 'N/A'
+      engagementRateNote = "Aucune donnée d'engagement disponible"
+    }
 
     // Top performing formats
     const formatCounts: Record<string, number> = {}
@@ -215,17 +264,17 @@ Réponds UNIQUEMENT en JSON valide :
 
 Métriques (30 jours) :
 - Posts publiés : ${posts30.length}
-- Vues : ${totalViews}
+- Vues : ${totalViews}${totalViews === 0 ? ' (non disponible pour comptes personnels LinkedIn)' : ''}
 - Likes : ${totalLikes}
 - Commentaires : ${totalComments}
 - Partages : ${totalShares}
-- Taux d'engagement : ${engagementRate}%
+- Taux d'engagement : ${engagementRate}${engagementRateNote ? `\n  ⚠️ Note: ${engagementRateNote}` : ''}
 - Top formats utilisés (90j) : ${topFormats.join(', ') || 'N/A'}
 
 Posts récents :
 ${recentTitles}
 
-Génère un plan d'action complet.`,
+Génère un plan d'action complet. ${totalViews === 0 ? 'Important: LinkedIn ne fournit pas les vues pour les comptes personnels — base tes recommandations sur les likes, commentaires et partages, pas sur un taux de vues.' : ''}`,
       temperature: 0.6,
       maxTokens: 1500,
     })
