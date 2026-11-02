@@ -190,113 +190,15 @@ async function callGemini(params: ChatParams): Promise<ChatResult> {
 }
 
 // ============================================================
-// Provider 2 : Z.ai GLM
+// Provider 2 : Z.ai GLM (open.bigmodel.cn)
+// API: https://open.bigmodel.cn/api/paas/v4/chat/completions
+// Modèle: glm-4-flash (configurable via GLM_MODEL)
+// ⭐ Si GLM_API_KEY est défini, ce provider est utilisé en priorité
 // ============================================================
 async function callGLM(params: ChatParams): Promise<ChatResult> {
   const apiKey = process.env.GLM_API_KEY!
-  const res = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'glm-4-flash',
-      messages: [
-        { role: 'system', content: params.system },
-        { role: 'user', content: params.user },
-      ],
-      temperature: params.temperature ?? 0.7,
-      max_tokens: params.maxTokens ?? 2000,
-    }),
-  })
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`GLM API error ${res.status}: ${err}`)
-  }
-  const data = await res.json()
-  const content = data.choices?.[0]?.message?.content || ''
-  return { content, provider: 'glm' }
-}
-
-// ============================================================
-// Provider 3 : Groq (ultra-rapide, Llama 3.1)
-// ============================================================
-async function callGroq(params: ChatParams): Promise<ChatResult> {
-  const apiKey = process.env.GROQ_API_KEY!
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'llama-3.1-70b-versatile',
-      messages: [
-        { role: 'system', content: params.system },
-        { role: 'user', content: params.user },
-      ],
-      temperature: params.temperature ?? 0.7,
-      max_tokens: params.maxTokens ?? 2000,
-    }),
-  })
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Groq API error ${res.status}: ${err}`)
-  }
-  const data = await res.json()
-  const content = data.choices?.[0]?.message?.content || ''
-  return { content, provider: 'groq' }
-}
-
-// ============================================================
-// Provider 4 : OpenRouter (multi-modèles)
-// ============================================================
-async function callOpenRouter(params: ChatParams): Promise<ChatResult> {
-  const apiKey = process.env.OPENROUTER_API_KEY!
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://datasphere.app',
-      'X-Title': 'DataSphere',
-    },
-    body: JSON.stringify({
-      model: 'anthropic/claude-3.5-sonnet', // ou 'openai/gpt-4o-mini' pour moins cher
-      messages: [
-        { role: 'system', content: params.system },
-        { role: 'user', content: params.user },
-      ],
-      temperature: params.temperature ?? 0.7,
-      max_tokens: params.maxTokens ?? 2000,
-    }),
-  })
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`OpenRouter API error ${res.status}: ${err}`)
-  }
-  const data = await res.json()
-  const content = data.choices?.[0]?.message?.content || ''
-  return { content, provider: 'openrouter' }
-}
-
-// ============================================================
-// Provider 5 : Z.ai (chat.z.ai) — natif HTTP, compatible OpenAI
-// API: https://api.z.ai/api/paas/v4/chat/completions
-// Modèles: glm-4-flash, glm-4-plus, glm-4-long
-// ⭐ Toujours disponible comme fallback (utilise ZAI_API_KEY ou
-//    GLM_API_KEY si ZAI_API_KEY n'est pas défini)
-// ============================================================
-async function callZAI(params: ChatParams): Promise<ChatResult> {
-  // ZAI_API_KEY ou fallback sur GLM_API_KEY (même provider, endpoints différents)
-  const apiKey = process.env.ZAI_API_KEY || process.env.GLM_API_KEY
-  if (!apiKey) {
-    throw new Error('ZAI_API_KEY (ou GLM_API_KEY) non configuré')
-  }
-
-  const model = process.env.ZAI_MODEL || 'glm-4-flash'
-  const apiUrl = process.env.ZAI_API_URL || 'https://api.z.ai/api/paas/v4/chat/completions'
+  const model = process.env.GLM_MODEL || 'glm-4-flash'
+  const apiUrl = process.env.GLM_API_URL || 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
 
   const res = await fetch(apiUrl, {
     method: 'POST',
@@ -314,18 +216,142 @@ async function callZAI(params: ChatParams): Promise<ChatResult> {
       max_tokens: params.maxTokens ?? 2000,
     }),
   })
-
   if (!res.ok) {
     const err = await res.text()
-    throw new Error(`Z.ai API error ${res.status}: ${err}`)
+    throw new Error(`GLM API error ${res.status}: ${err}`)
   }
-
   const data = await res.json()
   const content = data.choices?.[0]?.message?.content || ''
-  if (!content) {
-    throw new Error('Z.ai: réponse vide')
+  if (!content) throw new Error('GLM: réponse vide')
+  return { content, provider: 'glm' }
+}
+
+// ============================================================
+// Provider 3 : Groq (ultra-rapide, Llama 3.1/3.3)
+// ============================================================
+async function callGroq(params: ChatParams): Promise<ChatResult> {
+  const apiKey = process.env.GROQ_API_KEY!
+  const model = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: params.system },
+        { role: 'user', content: params.user },
+      ],
+      temperature: params.temperature ?? 0.7,
+      max_tokens: params.maxTokens ?? 2000,
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`Groq API error ${res.status}: ${err}`)
   }
-  return { content, provider: 'zai' }
+  const data = await res.json()
+  const content = data.choices?.[0]?.message?.content || ''
+  if (!content) throw new Error('Groq: réponse vide')
+  return { content, provider: 'groq' }
+}
+
+// ============================================================
+// Provider 4 : OpenRouter (multi-modèles)
+// ============================================================
+async function callOpenRouter(params: ChatParams): Promise<ChatResult> {
+  const apiKey = process.env.OPENROUTER_API_KEY!
+  const model = process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct:free'
+  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://datasphere.app',
+      'X-Title': 'DataSphere',
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: params.system },
+        { role: 'user', content: params.user },
+      ],
+      temperature: params.temperature ?? 0.7,
+      max_tokens: params.maxTokens ?? 2000,
+    }),
+  })
+  if (!res.ok) {
+    const err = await res.text()
+    throw new Error(`OpenRouter API error ${res.status}: ${err}`)
+  }
+  const data = await res.json()
+  const content = data.choices?.[0]?.message?.content || ''
+  if (!content) throw new Error('OpenRouter: réponse vide')
+  return { content, provider: 'openrouter' }
+}
+
+// ============================================================
+// Provider 5 : Z.ai (chat.z.ai) — natif HTTP, compatible OpenAI
+// Essaie api.z.ai puis open.bigmodel.cn en fallback
+// ⭐ Utilise ZAI_API_KEY ou GLM_API_KEY (même provider)
+// ============================================================
+async function callZAI(params: ChatParams): Promise<ChatResult> {
+  const apiKey = process.env.ZAI_API_KEY || process.env.GLM_API_KEY
+  if (!apiKey) {
+    throw new Error('ZAI_API_KEY (ou GLM_API_KEY) non configuré')
+  }
+
+  const model = process.env.ZAI_MODEL || 'glm-4-flash'
+  // Essayer plusieurs URLs (api.z.ai d'abord, puis open.bigmodel.cn)
+  const urls = [
+    process.env.ZAI_API_URL,
+    'https://api.z.ai/api/paas/v4/chat/completions',
+    'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+  ].filter(Boolean) as string[]
+
+  let lastErr = ''
+  for (const apiUrl of urls) {
+    try {
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: params.system },
+            { role: 'user', content: params.user },
+          ],
+          temperature: params.temperature ?? 0.7,
+          max_tokens: params.maxTokens ?? 2000,
+        }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        const content = data.choices?.[0]?.message?.content || ''
+        if (!content) throw new Error('Z.ai: réponse vide')
+        console.warn(`[Z.ai] OK via ${apiUrl}`)
+        return { content, provider: 'zai' }
+      }
+
+      const errText = await res.text()
+      lastErr = `${res.status}: ${errText.slice(0, 200)}`
+      // 404 ou 403 → essayer l'URL suivante
+      if (res.status === 404 || res.status === 403) continue
+      // Autre erreur → ne pas essayer les autres URLs
+      throw new Error(`Z.ai API error ${lastErr}`)
+    } catch (err: any) {
+      lastErr = err.message
+      // Continuer vers la prochaine URL
+    }
+  }
+
+  throw new Error(`Z.ai: toutes les URLs ont échoué. Dernière erreur: ${lastErr}`)
 }
 
 // ============================================================
