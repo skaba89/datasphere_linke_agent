@@ -217,33 +217,50 @@ async function callGemini(params: ChatParams): Promise<ChatResult> {
 // ============================================================
 async function callGLM(params: ChatParams): Promise<ChatResult> {
   const apiKey = process.env.GLM_API_KEY!
-  const model = process.env.GLM_MODEL || 'glm-4-flash'
+  // glm-4-flash n'existe plus — essayer glm-4-flash-250424, glm-4-air, glm-4
+  const models = [
+    process.env.GLM_MODEL,
+    'glm-4-flash-250424',
+    'glm-4-air',
+    'glm-4-flashx',
+    'glm-4',
+  ].filter(Boolean) as string[]
   const apiUrl = process.env.GLM_API_URL || 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
 
-  const res = await fetchWithTimeout(apiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: params.system },
-        { role: 'user', content: params.user },
-      ],
-      temperature: params.temperature ?? 0.7,
-      max_tokens: params.maxTokens ?? 2000,
-    }),
-  })
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`GLM API error ${res.status}: ${err}`)
+  let lastErr = ''
+  for (const model of models) {
+    try {
+      const res = await fetchWithTimeout(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: params.system },
+            { role: 'user', content: params.user },
+          ],
+          temperature: params.temperature ?? 0.7,
+          max_tokens: params.maxTokens ?? 2000,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const content = data.choices?.[0]?.message?.content || ''
+        if (!content) throw new Error('GLM: réponse vide')
+        console.warn(`[GLM] OK model=${model}`)
+        return { content, provider: 'glm' }
+      }
+      const err = await res.text()
+      lastErr = `GLM ${model}: ${res.status} ${err.slice(0, 200)}`
+      console.warn(`[GLM] model=${model} → ${res.status}`)
+    } catch (err: any) {
+      lastErr = err.message
+    }
   }
-  const data = await res.json()
-  const content = data.choices?.[0]?.message?.content || ''
-  if (!content) throw new Error('GLM: réponse vide')
-  return { content, provider: 'glm' }
+  throw new Error(`GLM: tous les modèles ont échoué. Dernier: ${lastErr}`)
 }
 
 // ============================================================
@@ -323,55 +340,65 @@ async function callZAI(params: ChatParams): Promise<ChatResult> {
     throw new Error('ZAI_API_KEY (ou GLM_API_KEY) non configuré')
   }
 
-  const model = process.env.ZAI_MODEL || 'glm-4-flash'
-  // Essayer plusieurs URLs (api.z.ai d'abord, puis open.bigmodel.cn)
+  // Essayer plusieurs combinaisons modèle + URL
+  const models = [
+    process.env.ZAI_MODEL,
+    'glm-4-flash-250424',
+    'glm-4-air',
+    'glm-4-flashx',
+    'glm-4',
+  ].filter(Boolean) as string[]
+
   const urls = [
     process.env.ZAI_API_URL,
-    'https://api.z.ai/api/paas/v4/chat/completions',
     'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+    'https://api.z.ai/api/paas/v4/chat/completions',
   ].filter(Boolean) as string[]
 
   let lastErr = ''
   for (const apiUrl of urls) {
-    try {
-      const res = await fetchWithTimeout(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: 'system', content: params.system },
-            { role: 'user', content: params.user },
-          ],
-          temperature: params.temperature ?? 0.7,
-          max_tokens: params.maxTokens ?? 2000,
-        }),
-      })
+    for (const model of models) {
+      try {
+        const res = await fetchWithTimeout(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: 'system', content: params.system },
+              { role: 'user', content: params.user },
+            ],
+            temperature: params.temperature ?? 0.7,
+            max_tokens: params.maxTokens ?? 2000,
+          }),
+        })
 
-      if (res.ok) {
-        const data = await res.json()
-        const content = data.choices?.[0]?.message?.content || ''
-        if (!content) throw new Error('Z.ai: réponse vide')
-        console.warn(`[Z.ai] OK via ${apiUrl}`)
-        return { content, provider: 'zai' }
+        if (res.ok) {
+          const data = await res.json()
+          const content = data.choices?.[0]?.message?.content || ''
+          if (!content) {
+            lastErr = 'réponse vide'
+            continue
+          }
+          console.warn(`[Z.ai] OK via ${apiUrl} model=${model}`)
+          return { content, provider: 'zai' }
+        }
+
+        const errText = await res.text()
+        lastErr = `${res.status}: ${errText.slice(0, 300)}`
+        console.warn(`[Z.ai] ${apiUrl} model=${model} → ${res.status}`)
+        // Essayer le modèle suivant
+      } catch (err: any) {
+        lastErr = err.message
+        // Continuer vers la prochaine combinaison
       }
-
-      const errText = await res.text()
-      lastErr = `${res.status}: ${errText.slice(0, 200)}`
-      // 404 ou 403 → essayer l'URL suivante
-      if (res.status === 404 || res.status === 403) continue
-      // Autre erreur → ne pas essayer les autres URLs
-      throw new Error(`Z.ai API error ${lastErr}`)
-    } catch (err: any) {
-      lastErr = err.message
-      // Continuer vers la prochaine URL
     }
   }
 
-  throw new Error(`Z.ai: toutes les URLs ont échoué. Dernière erreur: ${lastErr}`)
+  throw new Error(`Z.ai: tous les modèles/URLs ont échoué. Dernière erreur: ${lastErr}`)
 }
 
 // ============================================================
