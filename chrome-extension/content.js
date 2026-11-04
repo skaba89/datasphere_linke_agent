@@ -124,7 +124,19 @@
   setTimeout(scanAndSend, 3000)
 
   // Re-scan toutes les 30s (au cas où l'observer rate quelque chose)
-  setInterval(scanAndSend, 30000)
+  // Pausé quand l'onglet est caché pour économiser la batterie
+  let scanInterval = setInterval(scanAndSend, 30000)
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      clearInterval(scanInterval)
+      console.log('[DataSphere] Tab hidden, pausing scan')
+    } else {
+      scanInterval = setInterval(scanAndSend, 30000)
+      scanAndSend() // scan immédiat au retour
+      console.log('[DataSphere] Tab visible, resuming scan')
+    }
+  })
 
   console.log('[DataSphere] Content script loaded on', window.location.href)
 })()
