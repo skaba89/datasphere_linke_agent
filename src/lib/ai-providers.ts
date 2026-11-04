@@ -481,6 +481,29 @@ async function callZAI(params: ChatParams): Promise<ChatResult> {
 }
 
 // ============================================================
+// Provider 6 : z-ai-web-dev-sdk — TOUJOURS DISPONIBLE (dernier recours)
+// Ce SDK est embarqué dans le projet et fonctionne SANS clé API.
+// Il utilise l'infrastructure Z.ai interne du sandbox.
+// ============================================================
+async function callZAISdk(params: ChatParams): Promise<ChatResult> {
+  const ZAI = (await import('z-ai-web-dev-sdk')).default
+  const zai = await ZAI.create()
+  const completion = await zai.chat.completions.create({
+    messages: [
+      { role: 'system', content: params.system },
+      { role: 'user', content: params.user },
+    ],
+    thinking: { type: 'disabled' },
+    temperature: params.temperature ?? 0.7,
+    max_tokens: params.maxTokens ?? 2000,
+  })
+  const content = completion.choices?.[0]?.message?.content || ''
+  if (!content) throw new Error('z-ai-sdk: réponse vide')
+  console.warn('[z-ai-sdk] OK (fallback sans clé API)')
+  return { content, provider: 'z-ai-sdk' }
+}
+
+// ============================================================
 // Fonction principale : génère une réponse chat
 // Utilise le 1er provider disponible (ordre de priorité)
 // ⭐ Si le provider principal échoue, fallback vers le suivant
@@ -500,6 +523,8 @@ export async function generateChat(params: ChatParams): Promise<ChatResult> {
   if (process.env.GROQ_API_KEY) providers.push({ name: 'groq', fn: callGroq })
   // 5. OpenRouter
   if (process.env.OPENROUTER_API_KEY) providers.push({ name: 'openrouter', fn: callOpenRouter })
+  // 6. z-ai-web-dev-sdk — TOUJOURS DISPONIBLE (dernier recours, sans clé API)
+  providers.push({ name: 'z-ai-sdk', fn: callZAISdk })
 
   if (providers.length === 0) {
     throw new Error('Aucun provider IA configuré. Définissez au moins GEMINI_API_KEY.')
@@ -532,6 +557,7 @@ export function getAvailableProviders(): string[] {
   if (process.env.GLM_API_KEY) providers.push('glm')
   if (process.env.GROQ_API_KEY) providers.push('groq')
   if (process.env.OPENROUTER_API_KEY) providers.push('openrouter')
+  providers.push('z-ai-sdk') // toujours disponible (fallback sans clé)
   return providers
 }
 
