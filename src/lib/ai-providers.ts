@@ -215,20 +215,62 @@ async function callGemini(params: ChatParams): Promise<ChatResult> {
 // Modèle: glm-4-flash (configurable via GLM_MODEL)
 // ⭐ Si GLM_API_KEY est défini, ce provider est utilisé en priorité
 // ============================================================
+// Cache des modèles GLM/Z.ai disponibles (évite de re-list à chaque appel)
+let cachedGLMModel: string | null = null
+
+async function discoverGLMModels(apiKey: string, apiUrl: string): Promise<string[]> {
+  if (cachedGLMModel) return [cachedGLMModel]
+
+  const baseUrl = apiUrl.replace('/chat/completions', '/models')
+  const models: string[] = []
+
+  // 1. Appeler l'API ListModels
+  try {
+    const res = await fetchWithTimeout(baseUrl, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${apiKey}` },
+    }, 10000)
+    if (res.ok) {
+      const data = await res.json()
+      // L'API Z.ai retourne { data: [{ id: "glm-4-plus" }, ...] }
+      const modelList = data.data || data.models || data
+      if (Array.isArray(modelList)) {
+        for (const m of modelList) {
+          const id = m.id || m.name || m.model
+          if (id && typeof id === 'string') models.push(id)
+        }
+      }
+      console.warn(`[GLM] ListModels trouvé ${models.length} modèles: ${models.slice(0, 10).join(', ')}`)
+    } else {
+      console.warn(`[GLM] ListModels échec: ${res.status}`)
+    }
+  } catch (err) {
+    console.warn(`[GLM] ListModels erreur:`, (err as Error).message)
+  }
+
+  // 2. Ajouter des modèles connus en fallback
+  const fallback = ['glm-4-plus', 'glm-4', 'glm-4-air', 'glm-4-flash', 'glm-3-turbo', 'glm-4-flashx']
+  for (const f of fallback) {
+    if (!models.includes(f)) models.push(f)
+  }
+
+  // 3. Si GLM_MODEL est défini, le mettre en premier
+  const envModel = process.env.GLM_MODEL
+  if (envModel && !models.includes(envModel)) {
+    models.unshift(envModel)
+  } else if (envModel) {
+    models.unshift(envModel) // priorité
+  }
+
+  return models
+}
+
 async function callGLM(params: ChatParams): Promise<ChatResult> {
   const apiKey = process.env.GLM_API_KEY!
-  // glm-4-flash n'existe plus — essayer glm-4-flash-250424, glm-4-air, glm-4
-  const models = [
-    process.env.GLM_MODEL,
-    'glm-4-plus',
-    'glm-4',
-    'glm-4-air',
-    'glm-3-turbo',
-    'glm-4-flashx',
-    'glm-4-flash-250424',
-    'chatglm_turbo',
-  ].filter(Boolean) as string[]
   const apiUrl = process.env.GLM_API_URL || 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
+
+  // ⭐ Discovery dynamique: récupérer la liste des modèles disponibles
+  const models = await discoverGLMModels(apiKey, apiUrl)
 
   let lastErr = ''
   for (const model of models) {
@@ -252,18 +294,22 @@ async function callGLM(params: ChatParams): Promise<ChatResult> {
       if (res.ok) {
         const data = await res.json()
         const content = data.choices?.[0]?.message?.content || ''
-        if (!content) throw new Error('GLM: réponse vide')
+        if (!content) {
+          lastErr = 'réponse vide'
+          continue
+        }
+        cachedGLMModel = model // Cache le modèle qui marche
         console.warn(`[GLM] OK model=${model}`)
         return { content, provider: 'glm' }
       }
       const err = await res.text()
-      lastErr = `GLM ${model}: ${res.status} ${err.slice(0, 200)}`
+      lastErr = `${res.status}: ${err.slice(0, 200)}`
       console.warn(`[GLM] model=${model} → ${res.status}`)
     } catch (err: any) {
       lastErr = err.message
     }
   }
-  throw new Error(`GLM: tous les modèles ont échoué. Dernier: ${lastErr}`)
+  throw new Error(`GLM: tous les modèles ont échoué (${models.length} testés). Dernier: ${lastErr}`)
 }
 
 // ============================================================
@@ -334,26 +380,14 @@ async function callOpenRouter(params: ChatParams): Promise<ChatResult> {
 
 // ============================================================
 // Provider 5 : Z.ai (chat.z.ai) — natif HTTP, compatible OpenAI
-// Essaie api.z.ai puis open.bigmodel.cn en fallback
 // ⭐ Utilise ZAI_API_KEY ou GLM_API_KEY (même provider)
+// Utilise discoverGLMModels pour trouver dynamiquement les modèles
 // ============================================================
 async function callZAI(params: ChatParams): Promise<ChatResult> {
   const apiKey = process.env.ZAI_API_KEY || process.env.GLM_API_KEY
   if (!apiKey) {
     throw new Error('ZAI_API_KEY (ou GLM_API_KEY) non configuré')
   }
-
-  // Essayer plusieurs combinaisons modèle + URL
-  const models = [
-    process.env.ZAI_MODEL,
-    'glm-4-plus',
-    'glm-4',
-    'glm-4-air',
-    'glm-3-turbo',
-    'glm-4-flashx',
-    'glm-4-flash-250424',
-    'chatglm_turbo',
-  ].filter(Boolean) as string[]
 
   const urls = [
     process.env.ZAI_API_URL,
@@ -363,6 +397,9 @@ async function callZAI(params: ChatParams): Promise<ChatResult> {
 
   let lastErr = ''
   for (const apiUrl of urls) {
+    // ⭐ Discovery dynamique pour chaque URL
+    const models = await discoverGLMModels(apiKey, apiUrl)
+
     for (const model of models) {
       try {
         const res = await fetchWithTimeout(apiUrl, {
@@ -389,6 +426,7 @@ async function callZAI(params: ChatParams): Promise<ChatResult> {
             lastErr = 'réponse vide'
             continue
           }
+          cachedGLMModel = model
           console.warn(`[Z.ai] OK via ${apiUrl} model=${model}`)
           return { content, provider: 'zai' }
         }
@@ -396,10 +434,8 @@ async function callZAI(params: ChatParams): Promise<ChatResult> {
         const errText = await res.text()
         lastErr = `${res.status}: ${errText.slice(0, 300)}`
         console.warn(`[Z.ai] ${apiUrl} model=${model} → ${res.status}`)
-        // Essayer le modèle suivant
       } catch (err: any) {
         lastErr = err.message
-        // Continuer vers la prochaine combinaison
       }
     }
   }
