@@ -317,31 +317,52 @@ async function callGLM(params: ChatParams): Promise<ChatResult> {
 // ============================================================
 async function callGroq(params: ChatParams): Promise<ChatResult> {
   const apiKey = process.env.GROQ_API_KEY!
-  const model = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
-  const res = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: params.system },
-        { role: 'user', content: params.user },
-      ],
-      temperature: params.temperature ?? 0.7,
-      max_tokens: params.maxTokens ?? 2000,
-    }),
-  })
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Groq API error ${res.status}: ${err}`)
+  // Essayer plusieurs modèles (certains peuvent être dépréciés)
+  const models = [
+    process.env.GROQ_MODEL,
+    'llama-3.1-8b-instant',
+    'llama-3.3-70b-versatile',
+    'llama-3.1-70b-versatile',
+    'gemma2-9b-it',
+  ].filter(Boolean) as string[]
+
+  let lastErr = ''
+  for (const model of models) {
+    try {
+      const res = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: params.system },
+            { role: 'user', content: params.user },
+          ],
+          temperature: params.temperature ?? 0.7,
+          max_tokens: params.maxTokens ?? 2000,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const content = data.choices?.[0]?.message?.content || ''
+        if (!content) {
+          lastErr = 'réponse vide'
+          continue
+        }
+        console.warn(`[Groq] OK model=${model}`)
+        return { content, provider: 'groq' }
+      }
+      const err = await res.text()
+      lastErr = `${res.status}: ${err.slice(0, 200)}`
+      console.warn(`[Groq] model=${model} → ${res.status}`)
+    } catch (err: any) {
+      lastErr = err.message
+    }
   }
-  const data = await res.json()
-  const content = data.choices?.[0]?.message?.content || ''
-  if (!content) throw new Error('Groq: réponse vide')
-  return { content, provider: 'groq' }
+  throw new Error(`Groq: tous les modèles ont échoué. Dernier: ${lastErr}`)
 }
 
 // ============================================================
@@ -349,33 +370,53 @@ async function callGroq(params: ChatParams): Promise<ChatResult> {
 // ============================================================
 async function callOpenRouter(params: ChatParams): Promise<ChatResult> {
   const apiKey = process.env.OPENROUTER_API_KEY!
-  const model = process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct:free'
-  const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://datasphere.app',
-      'X-Title': 'DataSphere',
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: params.system },
-        { role: 'user', content: params.user },
-      ],
-      temperature: params.temperature ?? 0.7,
-      max_tokens: params.maxTokens ?? 2000,
-    }),
-  })
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`OpenRouter API error ${res.status}: ${err}`)
+  const models = [
+    process.env.OPENROUTER_MODEL,
+    'meta-llama/llama-3.1-8b-instruct',
+    'meta-llama/llama-3.2-3b-instruct:free',
+    'google/gemini-flash-1.5:free',
+    'mistralai/mistral-7b-instruct:free',
+  ].filter(Boolean) as string[]
+
+  let lastErr = ''
+  for (const model of models) {
+    try {
+      const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://datasphere.app',
+          'X-Title': 'DataSphere',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: params.system },
+            { role: 'user', content: params.user },
+          ],
+          temperature: params.temperature ?? 0.7,
+          max_tokens: params.maxTokens ?? 2000,
+        }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const content = data.choices?.[0]?.message?.content || ''
+        if (!content) {
+          lastErr = 'réponse vide'
+          continue
+        }
+        console.warn(`[OpenRouter] OK model=${model}`)
+        return { content, provider: 'openrouter' }
+      }
+      const err = await res.text()
+      lastErr = `${res.status}: ${err.slice(0, 200)}`
+      console.warn(`[OpenRouter] model=${model} → ${res.status}`)
+    } catch (err: any) {
+      lastErr = err.message
+    }
   }
-  const data = await res.json()
-  const content = data.choices?.[0]?.message?.content || ''
-  if (!content) throw new Error('OpenRouter: réponse vide')
-  return { content, provider: 'openrouter' }
+  throw new Error(`OpenRouter: tous les modèles ont échoué. Dernier: ${lastErr}`)
 }
 
 // ============================================================
