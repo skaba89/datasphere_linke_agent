@@ -46,11 +46,11 @@ export interface ChatResult {
 // Détecter le provider actif (basé sur les env vars disponibles)
 // ============================================================
 export function getActiveProvider(): string | null {
+  if (process.env.ZAI_API_KEY) return 'zai'
   if (process.env.GEMINI_API_KEY) return 'gemini'
   if (process.env.GLM_API_KEY) return 'glm'
   if (process.env.GROQ_API_KEY) return 'groq'
   if (process.env.OPENROUTER_API_KEY) return 'openrouter'
-  if (process.env.ZAI_API_KEY || process.env.GLM_API_KEY) return 'zai'
   return null
 }
 
@@ -379,68 +379,64 @@ async function callOpenRouter(params: ChatParams): Promise<ChatResult> {
 }
 
 // ============================================================
-// Provider 5 : Z.ai (chat.z.ai) — natif HTTP, compatible OpenAI
-// ⭐ Utilise ZAI_API_KEY ou GLM_API_KEY (même provider)
-// Utilise discoverGLMModels pour trouver dynamiquement les modèles
+// Provider 5 : Z.ai (api.z.ai) — plateforme internationale
+// ⭐ Utilise UNIQUEMENT ZAI_API_KEY (pas GLM_API_KEY)
+// ⭐ Utilise UNIQUEMENT api.z.ai (pas open.bigmodel.cn)
+// Les clés ZAI et GLM sont INCOMPATIBLES (plateformes différentes)
 // ============================================================
 async function callZAI(params: ChatParams): Promise<ChatResult> {
-  const apiKey = process.env.ZAI_API_KEY || process.env.GLM_API_KEY
+  const apiKey = process.env.ZAI_API_KEY
   if (!apiKey) {
-    throw new Error('ZAI_API_KEY (ou GLM_API_KEY) non configuré')
+    throw new Error('ZAI_API_KEY non configuré')
   }
 
-  const urls = [
-    process.env.ZAI_API_URL,
-    'https://open.bigmodel.cn/api/paas/v4/chat/completions',
-    'https://api.z.ai/api/paas/v4/chat/completions',
-  ].filter(Boolean) as string[]
+  // URL: api.z.ai uniquement (pas open.bigmodel.cn)
+  const apiUrl = process.env.ZAI_API_URL || 'https://api.z.ai/api/paas/v4/chat/completions'
+
+  // Discovery dynamique des modèles
+  const models = await discoverGLMModels(apiKey, apiUrl)
 
   let lastErr = ''
-  for (const apiUrl of urls) {
-    // ⭐ Discovery dynamique pour chaque URL
-    const models = await discoverGLMModels(apiKey, apiUrl)
+  for (const model of models) {
+    try {
+      const res = await fetchWithTimeout(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: params.system },
+            { role: 'user', content: params.user },
+          ],
+          temperature: params.temperature ?? 0.7,
+          max_tokens: params.maxTokens ?? 2000,
+        }),
+      })
 
-    for (const model of models) {
-      try {
-        const res = await fetchWithTimeout(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: 'system', content: params.system },
-              { role: 'user', content: params.user },
-            ],
-            temperature: params.temperature ?? 0.7,
-            max_tokens: params.maxTokens ?? 2000,
-          }),
-        })
-
-        if (res.ok) {
-          const data = await res.json()
-          const content = data.choices?.[0]?.message?.content || ''
-          if (!content) {
-            lastErr = 'réponse vide'
-            continue
-          }
-          cachedGLMModel = model
-          console.warn(`[Z.ai] OK via ${apiUrl} model=${model}`)
-          return { content, provider: 'zai' }
+      if (res.ok) {
+        const data = await res.json()
+        const content = data.choices?.[0]?.message?.content || ''
+        if (!content) {
+          lastErr = 'réponse vide'
+          continue
         }
-
-        const errText = await res.text()
-        lastErr = `${res.status}: ${errText.slice(0, 300)}`
-        console.warn(`[Z.ai] ${apiUrl} model=${model} → ${res.status}`)
-      } catch (err: any) {
-        lastErr = err.message
+        cachedGLMModel = model
+        console.warn(`[Z.ai] OK via ${apiUrl} model=${model}`)
+        return { content, provider: 'zai' }
       }
+
+      const errText = await res.text()
+      lastErr = `${res.status}: ${errText.slice(0, 300)}`
+      console.warn(`[Z.ai] ${apiUrl} model=${model} → ${res.status}`)
+    } catch (err: any) {
+      lastErr = err.message
     }
   }
 
-  throw new Error(`Z.ai: tous les modèles/URLs ont échoué. Dernière erreur: ${lastErr}`)
+  throw new Error(`Z.ai: tous les modèles ont échoué sur api.z.ai. Dernière erreur: ${lastErr}`)
 }
 
 // ============================================================
@@ -450,16 +446,19 @@ async function callZAI(params: ChatParams): Promise<ChatResult> {
 // ============================================================
 export async function generateChat(params: ChatParams): Promise<ChatResult> {
   // Construire la liste des providers disponibles par ordre de priorité
+  // ⭐ ZAI (api.z.ai international) en PRIORITÉ si configuré
   const providers: { name: string; fn: (p: ChatParams) => Promise<ChatResult> }[] = []
   
+  // 1. Z.ai international (api.z.ai) — si ZAI_API_KEY est défini
+  if (process.env.ZAI_API_KEY) providers.push({ name: 'zai', fn: callZAI })
+  // 2. Gemini
   if (process.env.GEMINI_API_KEY) providers.push({ name: 'gemini', fn: callGemini })
+  // 3. GLM chinois (open.bigmodel.cn) — si GLM_API_KEY est défini
   if (process.env.GLM_API_KEY) providers.push({ name: 'glm', fn: callGLM })
+  // 4. Groq
   if (process.env.GROQ_API_KEY) providers.push({ name: 'groq', fn: callGroq })
+  // 5. OpenRouter
   if (process.env.OPENROUTER_API_KEY) providers.push({ name: 'openrouter', fn: callOpenRouter })
-  // Z.ai (chat.z.ai) natif — toujours disponible si ZAI_API_KEY ou GLM_API_KEY est défini
-  if (process.env.ZAI_API_KEY || process.env.GLM_API_KEY) {
-    providers.push({ name: 'zai', fn: callZAI })
-  }
 
   if (providers.length === 0) {
     throw new Error('Aucun provider IA configuré. Définissez au moins GEMINI_API_KEY.')
@@ -487,11 +486,11 @@ export async function generateChat(params: ChatParams): Promise<ChatResult> {
 // ============================================================
 export function getAvailableProviders(): string[] {
   const providers: string[] = []
+  if (process.env.ZAI_API_KEY) providers.push('zai')
   if (process.env.GEMINI_API_KEY) providers.push('gemini')
   if (process.env.GLM_API_KEY) providers.push('glm')
   if (process.env.GROQ_API_KEY) providers.push('groq')
   if (process.env.OPENROUTER_API_KEY) providers.push('openrouter')
-  if (process.env.ZAI_API_KEY || process.env.GLM_API_KEY) providers.push('zai')
   return providers
 }
 
@@ -509,6 +508,9 @@ export type ComparisonResult = {
 export async function compareProviders(params: ChatParams): Promise<ComparisonResult[]> {
   const tasks: Promise<ComparisonResult>[] = []
 
+  if (process.env.ZAI_API_KEY) {
+    tasks.push(runTimed('zai', () => callZAI(params)))
+  }
   if (process.env.GEMINI_API_KEY) {
     tasks.push(runTimed('gemini', () => callGemini(params)))
   }
@@ -520,10 +522,6 @@ export async function compareProviders(params: ChatParams): Promise<ComparisonRe
   }
   if (process.env.OPENROUTER_API_KEY) {
     tasks.push(runTimed('openrouter', () => callOpenRouter(params)))
-  }
-  // Include Z.ai (chat.z.ai) if configured
-  if (process.env.ZAI_API_KEY || process.env.GLM_API_KEY) {
-    tasks.push(runTimed('zai', () => callZAI(params)))
   }
 
   return Promise.all(tasks)
