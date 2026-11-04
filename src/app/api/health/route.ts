@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { getAvailableProviders } from '@/lib/ai-providers'
 
 // ============================================================
 // GET /api/health
@@ -36,6 +37,18 @@ export async function GET() {
       message: e.message?.slice(0, 200) || 'Unknown DB error',
     }
     checks.status = 'degraded'
+  }
+
+  // ─── AI Providers ───
+  checks.ai = {
+    providers: getAvailableProviders(),
+    geminiKey: !!process.env.GEMINI_API_KEY,
+    glmKey: !!process.env.GLM_API_KEY,
+    zaiKey: !!process.env.ZAI_API_KEY,
+    groqKey: !!process.env.GROQ_API_KEY,
+    openrouterKey: !!process.env.OPENROUTER_API_KEY,
+    glmApiUrl: process.env.GLM_API_URL || 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+    zaiApiUrl: process.env.ZAI_API_URL || 'https://api.z.ai/api/paas/v4/chat/completions',
   }
 
   // ─── Environment variables ───
