@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DataSphere — LinkedIn Comment Capture",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Capture les commentaires LinkedIn et les envoie vers DataSphere pour auto-réponse IA",
   "permissions": [
     "storage",
@@ -10,7 +10,7 @@
   ],
   "host_permissions": [
     "https://www.linkedin.com/*",
-    "https://datasphere-sq19.onrender.com/*"
+    "https://*/*"
   ],
   "action": {
     "default_popup": "popup.html",

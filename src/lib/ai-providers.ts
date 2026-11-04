@@ -147,10 +147,13 @@ async function callGemini(params: ChatParams): Promise<ChatResult> {
   // Essayer v1beta puis v2beta
   for (const apiVersion of ['v1beta', 'v2beta']) {
     const res = await fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey, // ⭐ P1 FIX: key in header, not URL
+        },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: params.system }] },
           contents: [{ role: 'user', parts: [{ text: params.user }] }],
@@ -179,10 +182,13 @@ async function callGemini(params: ChatParams): Promise<ChatResult> {
   const newModel = await findAvailableGeminiModel(apiKey)
   if (newModel && newModel !== model) {
     const res = await fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models/${newModel}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${newModel}:generateContent`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: params.system }] },
           contents: [{ role: 'user', parts: [{ text: params.user }] }],
