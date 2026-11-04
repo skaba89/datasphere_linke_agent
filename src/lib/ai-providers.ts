@@ -23,6 +23,20 @@ export interface ChatParams {
   maxTokens?: number
 }
 
+// ⭐ Timeout pour tous les appels IA (P0 fix — empêche les hangs)
+const AI_TIMEOUT_MS = 60_000 // 60 secondes
+
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = AI_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal })
+    return res
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 export interface ChatResult {
   content: string
   provider: string
@@ -52,7 +66,7 @@ async function findAvailableGeminiModel(apiKey: string): Promise<string | null> 
 
   // 1. D'abord essayer l'API ListModels pour trouver un modèle valide
   try {
-    const listRes = await fetch(
+    const listRes = await fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
     )
     if (listRes.ok) {
@@ -99,7 +113,7 @@ async function findAvailableGeminiModel(apiKey: string): Promise<string | null> 
 
   for (const model of fallbackModels) {
     try {
-      const testRes = await fetch(
+      const testRes = await fetchWithTimeout(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
         {
           method: 'POST',
@@ -132,7 +146,7 @@ async function callGemini(params: ChatParams): Promise<ChatResult> {
 
   // Essayer v1beta puis v2beta
   for (const apiVersion of ['v1beta', 'v2beta']) {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
@@ -164,7 +178,7 @@ async function callGemini(params: ChatParams): Promise<ChatResult> {
   cachedGeminiModel = null
   const newModel = await findAvailableGeminiModel(apiKey)
   if (newModel && newModel !== model) {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/models/${newModel}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
@@ -200,7 +214,7 @@ async function callGLM(params: ChatParams): Promise<ChatResult> {
   const model = process.env.GLM_MODEL || 'glm-4-flash'
   const apiUrl = process.env.GLM_API_URL || 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
 
-  const res = await fetch(apiUrl, {
+  const res = await fetchWithTimeout(apiUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -232,7 +246,7 @@ async function callGLM(params: ChatParams): Promise<ChatResult> {
 async function callGroq(params: ChatParams): Promise<ChatResult> {
   const apiKey = process.env.GROQ_API_KEY!
   const model = process.env.GROQ_MODEL || 'llama-3.1-8b-instant'
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+  const res = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -264,7 +278,7 @@ async function callGroq(params: ChatParams): Promise<ChatResult> {
 async function callOpenRouter(params: ChatParams): Promise<ChatResult> {
   const apiKey = process.env.OPENROUTER_API_KEY!
   const model = process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct:free'
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+  const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -314,7 +328,7 @@ async function callZAI(params: ChatParams): Promise<ChatResult> {
   let lastErr = ''
   for (const apiUrl of urls) {
     try {
-      const res = await fetch(apiUrl, {
+      const res = await fetchWithTimeout(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
