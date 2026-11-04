@@ -57,8 +57,10 @@ describe('lib/linkedin-token-crypto.ts', () => {
     const { encryptLinkedInToken, decryptLinkedInToken } = await import('@/lib/linkedin-token-crypto')
     const encrypted = encryptLinkedInToken('my-token')
     const parts = encrypted.split('.')
-    // Tamper the auth tag (parts[2])
-    parts[2] = parts[2].slice(0, -2) + 'xx'
+    // Tamper the auth tag (parts[2]) — flip multiple bytes to ensure invalid
+    const authTag = parts[2]
+    const tamperedTag = authTag.slice(0, -4) + (authTag.slice(-4) === 'AAAA' ? 'BBBB' : 'AAAA')
+    parts[2] = tamperedTag
     const tampered = parts.join('.')
     expect(() => decryptLinkedInToken(tampered)).toThrow()
   })
