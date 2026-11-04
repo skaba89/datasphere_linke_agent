@@ -1,30 +1,55 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getCurrentUserId } from '@/lib/auth'
+import { getCurrentUserId, setSessionCookie } from '@/lib/auth'
 import { verifyTwoFactorToken, verifyBackupCode } from '@/lib/two-factor'
+import { consume2FAPendingToken } from '@/lib/two-factor-pending'
 
 // ============================================================
 // POST /api/2fa/verify
 // Vérifie un code TOTP (ou code de secours) pour login
-// Body: { token: string, userId: string }
-// Utilisé par le middleware de login quand le user a 2FA enabled
+//
+// Body: { token: string, twoFactorToken?: string }
+//
+// Deux modes:
+//   1. Login 2FA: { token, twoFactorToken } — le twoFactorToken est
+//      obtenu depuis /api/auth/login quand 2FA est activé.
+//      → Vérifie le TOTP, puis set session cookie.
+//   2. Session active: { token } (avec cookie session valide)
+//      → Vérifie le TOTP pour l'user courant (pas de cookie set).
 // ============================================================
+
 export async function POST(request: Request) {
   try {
-    const { token, userId: bodyUserId } = await request.json()
+    const { token, twoFactorToken } = await request.json()
 
-    // Si bodyUserId fourni : c'est un login (vérifier pour ce user)
-    // Sinon : c'est une vérification de session courante
-    const currentUserId = await getCurrentUserId()
-    const userId = bodyUserId || currentUserId
+    if (!token) {
+      return NextResponse.json({ success: false, error: 'Token 2FA requis' }, { status: 400 })
+    }
 
-    if (!userId) {
-      return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
+    let userId: string | null = null
+    let isLoginFlow = false
+
+    // Mode 1: Login 2FA — verify the pending token (P0 FIX: no more bodyUserId)
+    if (twoFactorToken) {
+      userId = consume2FAPendingToken(twoFactorToken)
+      if (!userId) {
+        return NextResponse.json({ success: false, error: 'Token 2FA expiré ou invalide. Reconnectez-vous.' }, { status: 401 })
+      }
+      isLoginFlow = true
+    } else {
+      // Mode 2: Session active — verify for current user
+      userId = await getCurrentUserId()
+      if (!userId) {
+        return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
+      }
     }
 
     const user = await db.user.findUnique({
       where: { id: userId },
-      select: { twoFactorSecret: true, twoFactorEnabled: true, twoFactorBackupCodes: true },
+      select: {
+        id: true, email: true, name: true, plan: true, trialEndsAt: true,
+        twoFactorSecret: true, twoFactorEnabled: true, twoFactorBackupCodes: true,
+      },
     })
 
     if (!user || !user.twoFactorEnabled || !user.twoFactorSecret) {
@@ -34,6 +59,13 @@ export async function POST(request: Request) {
     // 1. Vérifier le token TOTP
     const totpValid = await verifyTwoFactorToken(token, user.twoFactorSecret)
     if (totpValid) {
+      if (isLoginFlow) {
+        await setSessionCookie(user.id)
+        return NextResponse.json({
+          success: true, method: 'totp',
+          data: { id: user.id, email: user.email, name: user.name, plan: user.plan, trialEndsAt: user.trialEndsAt },
+        })
+      }
       return NextResponse.json({ success: true, method: 'totp' })
     }
 
@@ -41,24 +73,21 @@ export async function POST(request: Request) {
     if (user.twoFactorBackupCodes) {
       const [valid, newHashedCodes] = await verifyBackupCode(token, user.twoFactorBackupCodes)
       if (valid && newHashedCodes !== null) {
-        // Mettre à jour la liste des codes (supprimer celui utilisé)
-        await db.user.update({
-          where: { id: userId },
-          data: { twoFactorBackupCodes: newHashedCodes },
-        })
+        await db.user.update({ where: { id: user.id }, data: { twoFactorBackupCodes: newHashedCodes } })
+        if (isLoginFlow) {
+          await setSessionCookie(user.id)
+          return NextResponse.json({
+            success: true, method: 'backup',
+            data: { id: user.id, email: user.email, name: user.name, plan: user.plan, trialEndsAt: user.trialEndsAt },
+          })
+        }
         return NextResponse.json({ success: true, method: 'backup' })
       }
     }
 
-    return NextResponse.json(
-      { success: false, error: 'Code invalide' },
-      { status: 401 }
-    )
+    return NextResponse.json({ success: false, error: 'Code 2FA invalide' }, { status: 401 })
   } catch (error: any) {
     console.error('[POST /api/2fa/verify]', error)
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }

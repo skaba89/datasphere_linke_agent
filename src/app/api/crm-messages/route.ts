@@ -21,11 +21,20 @@ export async function POST(request: Request) {
     if (!userId) return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
     const body = await request.json()
     if (!body.prospectId || !body.subject || !body.body) return NextResponse.json({ success: false, error: 'prospectId, subject, body requis' }, { status: 400 })
-    const message = await db.crmMessage.create({ data: { userId, prospectId: body.prospectId, sequenceId: body.sequenceId || null, stepIndex: body.stepIndex || null, subject: body.subject, body: body.body, status: body.status || 'draft', sentAt: body.status === 'sent' ? new Date() : null } })
-    // Update prospect stage if message sent
-    if (body.status === 'sent') {
-      await db.prospect.update({ where: { id: body.prospectId }, data: { stage: 'contacted' } })
-    }
+
+    // ⭐ P1 FIX: Force status='draft' on creation — 'sent' must go through /send endpoint
+    // Only 'draft' is allowed at creation time to prevent bypassing the send flow
+    const message = await db.crmMessage.create({
+      data: {
+        userId,
+        prospectId: body.prospectId,
+        sequenceId: body.sequenceId || null,
+        stepIndex: body.stepIndex || null,
+        subject: body.subject,
+        body: body.body,
+        status: 'draft', // Always draft — use POST /api/crm-messages/[id]/send to send
+      },
+    })
     return NextResponse.json({ success: true, data: message }, { status: 201 })
   } catch (e: any) { return NextResponse.json({ success: false, error: e.message }, { status: 500 }) }
 }
