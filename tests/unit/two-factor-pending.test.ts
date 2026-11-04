@@ -74,19 +74,29 @@ describe('lib/two-factor-pending.ts — 2FA Pending Token', () => {
 
 describe('lib/ai-providers.ts — fetchWithTimeout + fallback chain', () => {
   it('getAvailableProviders returns configured providers', async () => {
+    process.env.ZAI_API_KEY = 'test-zai-key'
     process.env.GLM_API_KEY = 'test-glm-key'
     const { getAvailableProviders } = await import('@/lib/ai-providers')
     const providers = getAvailableProviders()
     expect(providers).toContain('glm')
-    expect(providers).toContain('zai') // Z.ai uses GLM_API_KEY as fallback
+    expect(providers).toContain('zai')
+    delete process.env.ZAI_API_KEY
     delete process.env.GLM_API_KEY
   })
 
-  it('getActiveProvider returns first configured provider', async () => {
+  it('getActiveProvider returns zai first when ZAI_API_KEY is set', async () => {
+    process.env.ZAI_API_KEY = 'test-zai-key'
     process.env.GLM_API_KEY = 'test-glm-key'
     const { getActiveProvider } = await import('@/lib/ai-providers')
-    const provider = getActiveProvider()
-    expect(provider).toBe('glm')
+    expect(getActiveProvider()).toBe('zai')
+    delete process.env.ZAI_API_KEY
+    delete process.env.GLM_API_KEY
+  })
+
+  it('getActiveProvider returns glm when only GLM_API_KEY is set', async () => {
+    process.env.GLM_API_KEY = 'test-glm-key'
+    const { getActiveProvider } = await import('@/lib/ai-providers')
+    expect(getActiveProvider()).toBe('glm')
     delete process.env.GLM_API_KEY
   })
 
@@ -97,16 +107,15 @@ describe('lib/ai-providers.ts — fetchWithTimeout + fallback chain', () => {
     delete process.env.OPENROUTER_API_KEY
     delete process.env.ZAI_API_KEY
     const { getActiveProvider } = await import('@/lib/ai-providers')
-    // vi.resetModules would be needed for true isolation, but getActiveProvider
-    // reads env at call time, so this works
     expect(getActiveProvider()).toBe(null)
   })
 
-  it('compareProviders includes zai when GLM_API_KEY is set', async () => {
+  it('ZAI is NOT included when only GLM_API_KEY is set (separate platforms)', async () => {
     process.env.GLM_API_KEY = 'test-glm-key'
     const { getAvailableProviders } = await import('@/lib/ai-providers')
     const providers = getAvailableProviders()
-    expect(providers).toContain('zai')
+    expect(providers).toContain('glm')
+    expect(providers).not.toContain('zai') // ZAI requires ZAI_API_KEY, not GLM_API_KEY
     delete process.env.GLM_API_KEY
   })
 })
