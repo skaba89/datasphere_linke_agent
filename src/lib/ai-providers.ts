@@ -220,10 +220,13 @@ async function callGLM(params: ChatParams): Promise<ChatResult> {
   // glm-4-flash n'existe plus — essayer glm-4-flash-250424, glm-4-air, glm-4
   const models = [
     process.env.GLM_MODEL,
-    'glm-4-flash-250424',
-    'glm-4-air',
-    'glm-4-flashx',
+    'glm-4-plus',
     'glm-4',
+    'glm-4-air',
+    'glm-3-turbo',
+    'glm-4-flashx',
+    'glm-4-flash-250424',
+    'chatglm_turbo',
   ].filter(Boolean) as string[]
   const apiUrl = process.env.GLM_API_URL || 'https://open.bigmodel.cn/api/paas/v4/chat/completions'
 
@@ -343,10 +346,13 @@ async function callZAI(params: ChatParams): Promise<ChatResult> {
   // Essayer plusieurs combinaisons modèle + URL
   const models = [
     process.env.ZAI_MODEL,
-    'glm-4-flash-250424',
-    'glm-4-air',
-    'glm-4-flashx',
+    'glm-4-plus',
     'glm-4',
+    'glm-4-air',
+    'glm-3-turbo',
+    'glm-4-flashx',
+    'glm-4-flash-250424',
+    'chatglm_turbo',
   ].filter(Boolean) as string[]
 
   const urls = [
