@@ -29,6 +29,10 @@ RUN npx prisma generate
 RUN npx next build --webpack
 RUN cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/
 
+# ✅ Copier z-ai-web-dev-sdk dans standalone (import dynamique non détecté par Next.js)
+RUN cp -r node_modules/z-ai-web-dev-sdk .next/standalone/node_modules/z-ai-web-dev-sdk 2>/dev/null || true
+RUN mkdir -p .next/standalone/node_modules/z-ai-web-dev-sdk && cp -r node_modules/z-ai-web-dev-sdk/* .next/standalone/node_modules/z-ai-web-dev-sdk/ 2>/dev/null || true
+
 # ✅ Prune : retire les devDeps pour garder un node_modules de production propre
 RUN npm prune --production
 

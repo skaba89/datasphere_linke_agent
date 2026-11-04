@@ -16,6 +16,9 @@
 //   const reply = await generateChat({ system, user })
 // ============================================================
 
+// ⭐ Import statique du SDK z-ai-web-dev-sdk (nécessaire pour le build standalone)
+import ZAISdk from 'z-ai-web-dev-sdk'
+
 export interface ChatParams {
   system: string
   user: string
@@ -486,8 +489,7 @@ async function callZAI(params: ChatParams): Promise<ChatResult> {
 // Il utilise l'infrastructure Z.ai interne du sandbox.
 // ============================================================
 async function callZAISdk(params: ChatParams): Promise<ChatResult> {
-  const ZAI = (await import('z-ai-web-dev-sdk')).default
-  const zai = await ZAI.create()
+  const zai = await ZAISdk.create()
   const completion = await zai.chat.completions.create({
     messages: [
       { role: 'system', content: params.system },
