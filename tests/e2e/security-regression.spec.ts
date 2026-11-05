@@ -9,17 +9,18 @@ test.describe('Security regression: OAuth, sessions, token encryption', () => {
     process.env.DATASPHERE_AUTH_SECRET = 'test-secret-must-have-at-least-32-characters'
     process.env.LINKEDIN_TOKEN_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64')
   })
-  test('OAuth state validates owner, signature and freshness', () => {
+  test('OAuth state validates owner, signature, freshness and single use', async () => {
     const valid = createLinkedInState('userA')
-    expect(verifyLinkedInState(valid, 'userA')).toBe(true)
-    expect(verifyLinkedInState(valid, 'userB')).toBe(false)
-    expect(verifyLinkedInState(valid + 'x', 'userA')).toBe(false)
+    expect(await verifyLinkedInState(valid, 'userA')).toBe(true)
+    expect(await verifyLinkedInState(valid, 'userA')).toBe(false) // replay denied
+    expect(await verifyLinkedInState(valid, 'userB')).toBe(false)
+    expect(await verifyLinkedInState(valid + 'x', 'userA')).toBe(false)
     const [payload] = valid.split('.')
     const changed = Buffer.from(JSON.stringify({ userId: 'userB', ts: Date.now(), nonce: '0'.repeat(48) })).toString('base64url')
-    expect(verifyLinkedInState(changed + '.' + valid.split('.')[1], 'userB')).toBe(false)
+    expect(await verifyLinkedInState(changed + '.' + valid.split('.')[1], 'userB')).toBe(false)
     const expiredPayload = Buffer.from(JSON.stringify({ userId: 'userA', ts: Date.now() - 11 * 60_000, nonce: '0'.repeat(48) })).toString('base64url')
-    const signature = createHmac('sha256', process.env.DATASPHERE_AUTH_SECRET!).update(expiredPayload).digest('base64url')
-    expect(verifyLinkedInState(expiredPayload + '.' + signature, 'userA')).toBe(false)
+    const signature = createHmac('sha256', (process.env.JWT_SECRET || process.env.DATASPHERE_AUTH_SECRET)!).update(expiredPayload).digest('base64url')
+    expect(await verifyLinkedInState(expiredPayload + '.' + signature, 'userA')).toBe(false)
     expect(payload).toBeTruthy()
   })
   test('encrypted tokens round trip, reject tampering and legacy plaintext', () => {
