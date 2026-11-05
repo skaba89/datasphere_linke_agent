@@ -74,7 +74,7 @@ test.describe('MCP HTTP — Business API key and draft safety', () => {
   test('create_post creates pending draft, isolated by authenticated user', async ({ request }) => {
     const title = `MCP isolated draft ${randomUUID()}`
     const res = await request.post('/api/mcp', {
-      headers: { Authorization: `Bearer ${apiKey}` },
+      headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json, text/event-stream' },
       data: {
         jsonrpc: '2.0', id: 3, method: 'tools/call',
         params: { name: 'create_post', arguments: {
@@ -98,7 +98,7 @@ test.describe('MCP HTTP — Business API key and draft safety', () => {
     expect(saved?.linkedinPostId).toBeFalsy()
 
     const otherList = await request.post('/api/mcp', {
-      headers: { Authorization: `Bearer ${otherApiKey}` },
+      headers: { Authorization: `Bearer ${otherApiKey}`, Accept: 'application/json, text/event-stream' },
       data: { jsonrpc: '2.0', id: 4, method: 'tools/call',
         params: { name: 'get_post', arguments: { id: created.id } } },
     })
@@ -109,7 +109,7 @@ test.describe('MCP HTTP — Business API key and draft safety', () => {
   test('foreign client ID is rejected without creating a proposal', async ({ request }) => {
     const title = `MCP rejected draft ${randomUUID()}`
     const response = await request.post('/api/mcp', {
-      headers: { Authorization: `Bearer ${apiKey}` },
+      headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json, text/event-stream' },
       data: { jsonrpc: '2.0', id: 5, method: 'tools/call',
         params: { name: 'create_post', arguments: {
           title, content: 'Un brouillon ne doit pas appartenir à un client étranger.',
@@ -130,7 +130,7 @@ test.describe('MCP HTTP — Business API key and draft safety', () => {
       where: { id: candidate.id }, data: { revokedAt: new Date() },
     })
     const response = await request.post('/api/mcp', {
-      headers: { Authorization: `Bearer ${temporaryKey.key}` },
+      headers: { Authorization: `Bearer ${temporaryKey.key}`, Accept: 'application/json, text/event-stream' },
       data: { jsonrpc: '2.0', id: 6, method: 'tools/list' },
     })
     expect(response.status()).toBe(401)
