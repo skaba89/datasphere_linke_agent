@@ -22,6 +22,9 @@ import {
 export async function GET(request: Request) {
   try {
     const userId = await getCurrentUserId()
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
+    }
     const { searchParams } = new URL(request.url)
 
     const limit = normalizeLimit(parseInt(searchParams.get('limit') || '20'))
@@ -41,8 +44,8 @@ export async function GET(request: Request) {
     // If we have a valid cursor, fetch the cursor item to get its createdAt
     let cursorItem: { id: string; createdAt: Date } | null = null
     if (cursorId) {
-      cursorItem = await db.postProposal.findUnique({
-        where: { id: cursorId },
+      cursorItem = await db.postProposal.findFirst({
+        where: { id: cursorId, userId },
         select: { id: true, createdAt: true },
       })
       if (!cursorItem) {
@@ -53,8 +56,7 @@ export async function GET(request: Request) {
       }
     }
 
-    const where: any = {}
-    if (userId) where.userId = userId
+    const where: any = { userId }
     if (status) where.status = status
 
     // Cursor-based where clause: items older than the cursor item
@@ -98,6 +100,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const userId = await getCurrentUserId()
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
+    }
     const body = await request.json()
 
     const required = ['title', 'content']
@@ -112,7 +117,7 @@ export async function POST(request: Request) {
 
     const proposal = await db.postProposal.create({
       data: {
-        userId: userId || null,
+        userId,
         title: body.title,
         content: body.content,
         hashtags: body.hashtags || '',
