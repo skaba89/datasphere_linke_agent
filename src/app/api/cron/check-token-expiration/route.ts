@@ -35,6 +35,15 @@ export async function GET(request: Request) {
 
   logger.info({ route: 'cron/check-token-expiration' }, 'Token expiration check started')
 
+  // Periodically prune already-expired replay records. This cleanup is not
+  // part of authorization: expiry and the UNIQUE nonce constraint are checked
+  // independently, so a cleanup failure cannot permit a replay.
+  try {
+    await db.oAuthConsumedState.deleteMany({ where: { expiresAt: { lt: now } } })
+  } catch (error) {
+    logger.error({ route: 'cron/check-token-expiration', err: (error as Error).message }, 'OAuth nonce cleanup failed')
+  }
+
   let expiredCount = 0
   let warningCount = 0
   let urgentCount = 0
