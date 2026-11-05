@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUserId } from '@/lib/auth'
 import { generateLinkedInPosts } from '@/lib/ai'
+import { AiGenerationTimeoutError, withAiGenerationDeadline } from '@/lib/ai-generation-timeout'
 import { checkPlanLimit, checkPlanFeature } from '@/lib/plans'
 import { applyRateLimit, RATE_LIMITS, rateLimitHeaders } from '@/lib/rate-limit'
 
@@ -82,13 +83,13 @@ export async function POST(request: Request) {
     const count = Math.min(body.count || 3, 10) // max 10 par requête
 
     // ✅ Vraie génération IA
-    const posts = await generateLinkedInPosts({
+    const posts = await withAiGenerationDeadline(generateLinkedInPosts({
       topics: settings.topics,
       tone: settings.tone,
       targetAudience: settings.targetAudience,
       language: settings.language,
       count,
-    })
+    }))
 
     // Persister en base
     const created: Awaited<ReturnType<typeof db.postProposal.create>>[] = []
@@ -107,6 +108,12 @@ export async function POST(request: Request) {
     }, { status: 201 })
   } catch (error: any) {
     console.error('[POST /api/proposals/generate]', error)
+    if (error instanceof AiGenerationTimeoutError) {
+      return NextResponse.json(
+        { success: false, error: error.message, code: 'AI_TIMEOUT' },
+        { status: 504 }
+      )
+    }
     return NextResponse.json(
       { success: false, error: error.message ?? 'Erreur lors de la génération IA' },
       { status: 500 }
