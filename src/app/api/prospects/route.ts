@@ -28,8 +28,8 @@ export async function GET(request: Request) {
     }
     let cursorItem: { id: string; createdAt: Date } | null = null
     if (cursorId) {
-      cursorItem = await db.prospect.findUnique({
-        where: { id: cursorId },
+      cursorItem = await db.prospect.findFirst({
+        where: { id: cursorId, userId },
         select: { id: true, createdAt: true },
       })
       if (!cursorItem) {

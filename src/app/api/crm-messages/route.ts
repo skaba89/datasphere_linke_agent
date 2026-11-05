@@ -22,6 +22,26 @@ export async function POST(request: Request) {
     const body = await request.json()
     if (!body.prospectId || !body.subject || !body.body) return NextResponse.json({ success: false, error: 'prospectId, subject, body requis' }, { status: 400 })
 
+    // A foreign prospect ID must never be linked to this user's CRM message.
+    const ownedProspect = await db.prospect.findFirst({
+      where: { id: body.prospectId, userId },
+      select: { id: true },
+    })
+    if (!ownedProspect) {
+      return NextResponse.json({ success: false, error: 'Prospect introuvable' }, { status: 404 })
+    }
+
+    // A sequence must also belong to the same user, if provided.
+    if (body.sequenceId) {
+      const ownedSequence = await db.crmSequence.findFirst({
+        where: { id: body.sequenceId, userId },
+        select: { id: true },
+      })
+      if (!ownedSequence) {
+        return NextResponse.json({ success: false, error: 'Séquence introuvable' }, { status: 404 })
+      }
+    }
+
     // ⭐ P1 FIX: Force status='draft' on creation — 'sent' must go through /send endpoint
     // Only 'draft' is allowed at creation time to prevent bypassing the send flow
     const message = await db.crmMessage.create({
