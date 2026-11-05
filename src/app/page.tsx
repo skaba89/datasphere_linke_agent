@@ -114,6 +114,7 @@ export default function Home() {
   const [metrics, setMetrics] = useState<Metric[]>([])
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [generationError, setGenerationError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [proposalFilter, setProposalFilter] = useState('all')
   const [user, setUser] = useState<CurrentUser | null>(null)
@@ -200,28 +201,43 @@ export default function Home() {
   // HANDLERS
   // ============================================================
   const handleGenerateProposals = async () => {
+    if (generating) return
     setGenerating(true)
+    setGenerationError(null)
+    // The server has a shorter global LLM deadline (45s). Keep a browser
+    // deadline too for stalled proxies or lost HTTP responses.
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 55_000)
     try {
-      // ✅ Vraie génération IA via /api/proposals/generate
       const res = await fetch('/api/proposals/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ count: 3 }),
+        signal: controller.signal,
       })
-      const data = await res.json()
-      if (!data.success) {
-        if (res.status === 402) {
-          toast.error(data.error) // Limite plan atteinte
-        } else {
-          throw new Error(data.error)
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.success) {
+        const message = typeof data?.error === 'string'
+          ? data.error
+          : `Le service de génération ne répond pas correctement (HTTP ${res.status}).`
+        if (res.status === 401) {
+          throw new Error('Session expirée. Reconnectez-vous pour générer des posts.')
         }
-      } else {
-        await refetchProposals()
-        toast.success(`${data.data?.length || 3} posts générés avec succès !`)
+        throw new Error(message)
       }
+      if (!Array.isArray(data.data) || data.data.length === 0) {
+        throw new Error('Le service IA n’a renvoyé aucun brouillon.')
+      }
+      await refetchProposals()
+      toast.success(`${data.data.length} posts générés avec succès !`)
     } catch (err: any) {
-      toast.error(`Génération échouée: ${err.message}`)
+      const message = err?.name === 'AbortError'
+        ? 'Le délai de génération est dépassé. Vérifiez les fournisseurs IA puis réessayez.'
+        : (err?.message || 'Erreur inconnue pendant la génération IA.')
+      setGenerationError(message)
+      toast.error(message)
     } finally {
+      clearTimeout(timeout)
       setGenerating(false)
     }
   }
@@ -452,6 +468,7 @@ export default function Home() {
                   onFilterChange={setProposalFilter}
                   onGenerate={handleGenerateProposals}
                   generating={generating}
+                  generationError={generationError}
                   onUpdate={handleUpdateProposal}
                   onPublish={handlePublishProposal}
                 />
@@ -1047,12 +1064,13 @@ function SmartPosterTab({ settings, setSettings, saving, onSave }: {
 // ============================================================
 // PROPOSALS TAB
 // ============================================================
-function ProposalsTab({ proposals, filter, onFilterChange, onGenerate, generating, onUpdate, onPublish }: {
+function ProposalsTab({ proposals, filter, onFilterChange, onGenerate, generating, generationError, onUpdate, onPublish }: {
   proposals: Proposal[]
   filter: string
   onFilterChange: (f: string) => void
   onGenerate: () => void
   generating: boolean
+  generationError: string | null
   onUpdate: (id: string, status: string) => void
   onPublish: (id: string) => Promise<void>
 }) {
@@ -1088,6 +1106,12 @@ function ProposalsTab({ proposals, filter, onFilterChange, onGenerate, generatin
           {generating ? 'Génération en cours...' : 'Générer de nouvelles propositions'}
         </Button>
       </div>
+
+      {generationError && (
+        <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <strong>Impossible de générer les propositions.</strong> {generationError}
+        </div>
+      )}
 
       {/* Filter Tabs */}
       <Tabs value={filter} onValueChange={onFilterChange}>
