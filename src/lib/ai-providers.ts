@@ -371,55 +371,70 @@ async function callGroq(params: ChatParams): Promise<ChatResult> {
 // ============================================================
 // Provider 4 : OpenRouter (multi-modèles)
 // ============================================================
+// Use the configured model, or OpenRouter's maintained free-model router.
+// Do not retry an obsolete hard-coded list: it produces misleading 404s,
+// wastes daily free-tier requests and hides the real provider failure.
+export function getOpenRouterModel(): string {
+  return process.env.OPENROUTER_MODEL?.trim() || 'openrouter/free'
+}
+
 async function callOpenRouter(params: ChatParams): Promise<ChatResult> {
   const apiKey = process.env.OPENROUTER_API_KEY!
-  const models = [
-    process.env.OPENROUTER_MODEL,
-    'meta-llama/llama-3.1-8b-instruct',
-    'meta-llama/llama-3.2-3b-instruct:free',
-    'google/gemini-flash-1.5:free',
-    'mistralai/mistral-7b-instruct:free',
-  ].filter(Boolean) as string[]
+  const model = getOpenRouterModel()
 
-  let lastErr = ''
-  for (const model of models) {
+  const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://datasphere.app',
+      'X-Title': 'DataSphere',
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: params.system },
+        { role: 'user', content: params.user },
+      ],
+      temperature: params.temperature ?? 0.7,
+      max_tokens: params.maxTokens ?? 2000,
+    }),
+  })
+
+  if (!res.ok) {
+    // Only expose a short, non-sensitive provider message. In particular,
+    // never include request headers or API keys in an API error.
+    let providerMessage = ''
     try {
-      const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-          'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://datasphere.app',
-          'X-Title': 'DataSphere',
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: 'system', content: params.system },
-            { role: 'user', content: params.user },
-          ],
-          temperature: params.temperature ?? 0.7,
-          max_tokens: params.maxTokens ?? 2000,
-        }),
-      })
-      if (res.ok) {
-        const data = await res.json()
-        const content = data.choices?.[0]?.message?.content || ''
-        if (!content) {
-          lastErr = 'réponse vide'
-          continue
-        }
-        console.warn(`[OpenRouter] OK model=${model}`)
-        return { content, provider: 'openrouter' }
+      const data = await res.json()
+      if (typeof data?.error?.message === 'string') {
+        providerMessage = data.error.message.slice(0, 240)
       }
-      const err = await res.text()
-      lastErr = `${res.status}: ${err.slice(0, 200)}`
-      console.warn(`[OpenRouter] model=${model} → ${res.status}`)
-    } catch (err: any) {
-      lastErr = err.message
+    } catch {
+      providerMessage = 'Réponse du fournisseur non lisible.'
     }
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(`OpenRouter (HTTP ${res.status}) : clé API invalide ou accès refusé.`)
+    }
+    if (res.status === 402) {
+      throw new Error('OpenRouter (HTTP 402) : crédits insuffisants ou accès au modèle non autorisé.')
+    }
+    if (res.status === 429) {
+      throw new Error('OpenRouter (HTTP 429) : limite de requêtes atteinte. Réessayez plus tard.')
+    }
+    if (res.status === 404) {
+      throw new Error(`OpenRouter (HTTP 404) : modèle ${model} indisponible. Vérifiez OPENROUTER_MODEL ou utilisez openrouter/free.`)
+    }
+    throw new Error(`OpenRouter (HTTP ${res.status}, modèle ${model}) : ${providerMessage || 'échec du fournisseur.'}`)
   }
-  throw new Error(`OpenRouter: tous les modèles ont échoué. Dernier: ${lastErr}`)
+
+  const data = await res.json()
+  const content = data.choices?.[0]?.message?.content || ''
+  if (typeof content !== 'string' || !content.trim()) {
+    throw new Error(`OpenRouter : réponse vide pour le modèle ${model}.`)
+  }
+  console.warn(`[OpenRouter] OK model=${model}`)
+  return { content, provider: 'openrouter' }
 }
 
 // ============================================================
