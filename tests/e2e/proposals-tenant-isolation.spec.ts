@@ -31,13 +31,15 @@ test('proposal and demo seed endpoints enforce authentication and tenant isolati
     expect((await res.json()).data.status).toBe('pending')
   }
 
-  const publicList = await request.get('/api/proposals')
+  // Explicit empty Cookie overrides the registration session in the shared Playwright API context.
+  const publicList = await request.get('/api/proposals', { headers: { Cookie: '' } })
   expect(publicList.status()).toBe(401)
   const publicCreate = await request.post('/api/proposals', {
+    headers: { Cookie: '' },
     data: { title: 'Unauthenticated', content: 'Should not be written.' },
   })
   expect(publicCreate.status()).toBe(401)
-  const publicSeed = await request.post('/api/proposals/seed')
+  const publicSeed = await request.post('/api/proposals/seed', { headers: { Cookie: '' } })
   expect(publicSeed.status()).toBe(401)
 
   const listA = await request.get('/api/proposals', { headers: { Cookie: cookieA } })
