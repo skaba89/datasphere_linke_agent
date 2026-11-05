@@ -18,7 +18,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (body.monthlyGoal !== undefined) data.monthlyGoal = body.monthlyGoal
     if (body.color !== undefined) data.color = body.color
     if (body.active !== undefined) data.active = body.active
-    if (body.linkedinAccountId !== undefined) data.linkedinAccountId = body.linkedinAccountId
+
+    // A client may only link an account owned by the same authenticated user.
+    if (body.linkedinAccountId !== undefined) {
+      if (body.linkedinAccountId === null) {
+        data.linkedinAccountId = null
+      } else if (typeof body.linkedinAccountId !== 'string' || !body.linkedinAccountId.trim()) {
+        return NextResponse.json({ success: false, error: 'Compte LinkedIn invalide' }, { status: 400 })
+      } else {
+        const ownedAccount = await db.linkedInAccount.findFirst({
+          where: { id: body.linkedinAccountId, userId },
+          select: { id: true },
+        })
+        if (!ownedAccount) {
+          return NextResponse.json({ success: false, error: 'Compte LinkedIn introuvable' }, { status: 404 })
+        }
+        data.linkedinAccountId = ownedAccount.id
+      }
+    }
 
     const client = await db.client.update({ where: { id }, data })
     return NextResponse.json({ success: true, data: client })
