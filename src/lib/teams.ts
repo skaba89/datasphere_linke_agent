@@ -75,6 +75,12 @@ export async function inviteMember(
   email: string,
   role: 'admin' | 'member' = 'member'
 ): Promise<{ invitationId: string; token: string; isNewUser: boolean }> {
+  // Validate at the service boundary as well as the HTTP route: TypeScript
+  // unions do not protect values originating in JSON requests at runtime.
+  if (role !== 'admin' && role !== 'member') {
+    throw new Error('Rôle d’invitation invalide')
+  }
+
   // Vérifier que l'invité n'est pas déjà membre
   const normalizedEmail = email.toLowerCase().trim()
   const existingUser = await db.user.findUnique({ where: { email: normalizedEmail } })
