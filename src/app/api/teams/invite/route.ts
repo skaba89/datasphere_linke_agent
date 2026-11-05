@@ -37,6 +37,15 @@ export async function POST(request: Request) {
       )
     }
 
+    // The JSON body is untyped at runtime. Never allow an invitation to
+    // grant owner privileges (or any unknown role).
+    if (role !== undefined && role !== 'admin' && role !== 'member') {
+      return NextResponse.json(
+        { success: false, error: 'Rôle invalide (admin ou member)' },
+        { status: 400 }
+      )
+    }
+
     // Vérifier que l'user courant a une team
     const team = await getTeamWithMembers(userId)
     if (!team) {
