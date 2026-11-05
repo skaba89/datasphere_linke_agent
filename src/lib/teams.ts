@@ -272,10 +272,16 @@ export async function revokeInvitation(
     throw new Error('Permission refusée.')
   }
 
-  await db.teamInvitation.update({
-    where: { id: invitationId },
+  // Scope the write to the requester's team and pending invitations only.
+  // updateMany is an atomic conditional update: knowing another team's ID
+  // cannot revoke its invitation, even if the invitation changes meanwhile.
+  const result = await db.teamInvitation.updateMany({
+    where: { id: invitationId, teamId, status: 'pending' },
     data: { status: 'revoked' },
   })
+  if (result.count !== 1) {
+    throw new Error('Invitation introuvable ou non révocable.')
+  }
 }
 
 // ============================================================

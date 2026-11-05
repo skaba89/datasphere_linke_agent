@@ -33,9 +33,12 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error: any) {
+    if (error instanceof Error && error.message === 'Invitation introuvable ou non révocable.') {
+      return NextResponse.json({ success: false, error: 'Invitation introuvable' }, { status: 404 })
+    }
     console.error('[DELETE /api/teams/invitations/[id]]', error)
     return NextResponse.json(
-      { success: false, error: error.message ?? 'Erreur serveur' },
+      { success: false, error: 'Erreur serveur' },
       { status: 500 }
     )
   }
