@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { verifyApiKey } from '@/lib/api-keys'
 import { findTool, toolsToList } from '@/lib/mcp-tools'
 import { logger } from '@/lib/logger'
+import { MCP_PROTOCOL_VERSION, validateMcpTransport } from '@/lib/mcp-transport'
 
 // ============================================================
 // /api/mcp — MCP (Model Context Protocol) Server Endpoint
@@ -59,10 +60,9 @@ export async function POST(request: Request) {
     return NextResponse.json(jsonRpcError(null, -32700, 'Parse error: JSON invalide'), { status: 400 })
   }
 
-  // Handle batch requests
-  if (Array.isArray(body)) {
-    const results = await Promise.all(body.map(req => handleRequest(req, userId)))
-    return NextResponse.json(results)
+  const invalid = validateMcpTransport(request, body)
+  if (invalid) {
+    return NextResponse.json(jsonRpcError(body?.id ?? null, -32600, invalid.message), { status: invalid.status })
   }
 
   // Single request
@@ -88,22 +88,15 @@ export async function POST(request: Request) {
 // GET handler — server info / health check
 // ============================================================
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  const authResult = await verifyApiKey(authHeader)
-
-  return NextResponse.json({
-    server: SERVER_INFO,
-    protocol: 'MCP/1.0 (JSON-RPC 2.0 over HTTP)',
-    authenticated: !!authResult,
-    toolsCount: 9,
-    endpoints: {
-      POST: '/api/mcp — JSON-RPC 2.0 request',
-      GET: '/api/mcp — server info',
-    },
-    methods: ['initialize', 'tools/list', 'tools/call', 'ping'],
-    auth: 'Bearer dsk_live_XXX (plan Business+ requis)',
-  })
+  const origin = request.headers.get('origin')
+  if (origin && origin !== new URL(request.url).origin) {
+    return new NextResponse(null, { status: 403 })
+  }
+  // GET is not an SSE endpoint. MCP clients can use POST for all requests.
+  return new NextResponse(null, { status: 405, headers: { Allow: 'POST' } })
 }
+
+
 
 // ============================================================
 // Handle a single JSON-RPC request
@@ -124,7 +117,7 @@ async function handleRequest(req: any, userId: string): Promise<any | null> {
           jsonrpc: '2.0',
           id,
           result: {
-            protocolVersion: '2024-11-05',
+            protocolVersion: MCP_PROTOCOL_VERSION,
             capabilities: SERVER_CAPABILITIES,
             serverInfo: SERVER_INFO,
           },
@@ -173,7 +166,7 @@ async function handleRequest(req: any, userId: string): Promise<any | null> {
             jsonrpc: '2.0',
             id,
             result: {
-              content: [{ type: 'text', text: `Erreur tool: ${toolErr.message}` }],
+              content: [{ type: 'text', text: 'Erreur lors de l’exécution de l’outil' }],
               isError: true,
             },
           }
@@ -196,7 +189,7 @@ async function handleRequest(req: any, userId: string): Promise<any | null> {
         }
     }
   } catch (err: any) {
-    return jsonRpcError(req.id, -32603, `Erreur interne: ${err.message}`)
+    return jsonRpcError(req.id, -32603, 'Erreur interne')
   }
 }
 
