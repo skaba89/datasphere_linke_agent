@@ -80,20 +80,23 @@ const PROPOSALS = [
 export async function POST() {
   try {
     const userId = await getCurrentUserId()
-    // Delete existing one by one (SQLite compatible) - scope à l'utilisateur si authentifié
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'Non authentifié' }, { status: 401 })
+    }
+    // Only the authenticated user's proposals may be replaced by demo data.
     const existing = await db.postProposal.findMany({
-      where: userId ? { userId } : {},
+      where: { userId },
       select: { id: true },
     })
     for (const p of existing) {
-      await db.postProposal.delete({ where: { id: p.id } })
+      await db.postProposal.deleteMany({ where: { id: p.id, userId } })
     }
 
     // Create new proposals one by one
     const created: Awaited<ReturnType<typeof db.postProposal.create>>[] = []
     for (const data of PROPOSALS) {
       const p = await db.postProposal.create({
-        data: { ...data, userId: userId || null },
+        data: { ...data, userId },
       })
       created.push(p)
     }
