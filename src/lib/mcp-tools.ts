@@ -99,6 +99,23 @@ export const MCP_TOOLS: McpTool[] = [
       if (!args.content || args.content.trim().length < 10) {
         return textResult('Contenu requis (10 caractères min.)', true)
       }
+      // The MCP API key identifies the owner. A client ID supplied by the
+      // caller must not link a post to another user's agency account.
+      // Fail closed before the write, including for unknown client IDs.
+      const clientId = args.clientId
+      if (clientId !== undefined && clientId !== null) {
+        if (typeof clientId !== 'string' || !clientId.trim()) {
+          return textResult('Client introuvable ou non autorisé', true)
+        }
+        const ownedClient = await db.client.findFirst({
+          where: { id: clientId, userId },
+          select: { id: true },
+        })
+        if (!ownedClient) {
+          return textResult('Client introuvable ou non autorisé', true)
+        }
+      }
+
       const post = await db.postProposal.create({
         data: {
           userId,
@@ -112,7 +129,7 @@ export const MCP_TOOLS: McpTool[] = [
           optimalTime: 'manual',
           engagementEst: 'pending',
           status: 'pending', // anti-bypass: toujours pending
-          clientId: args.clientId || null,
+          clientId: clientId ?? null,
         },
       })
       return jsonResult({ success: true, id: post.id, status: post.status, message: 'Brouillon créé. L\'utilisateur doit l\'approuver avant publication.' })
