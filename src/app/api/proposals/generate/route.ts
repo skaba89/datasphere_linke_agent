@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getCurrentUserId } from '@/lib/auth'
 import { generateLinkedInPosts } from '@/lib/ai'
+import { getAvailableProviders } from '@/lib/ai-providers'
 import { AiGenerationTimeoutError, withAiGenerationDeadline } from '@/lib/ai-generation-timeout'
 import { checkPlanLimit, checkPlanFeature } from '@/lib/plans'
 import { applyRateLimit, RATE_LIMITS, rateLimitHeaders } from '@/lib/rate-limit'
@@ -61,6 +62,17 @@ export async function POST(request: Request) {
           upgrade: true,
         },
         { status: 402 }
+      )
+    }
+
+    if (getAvailableProviders().length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'AI_NOT_CONFIGURED',
+          error: 'Aucun fournisseur IA configuré sur le serveur. Contactez l’administrateur pour ajouter une clé Gemini, Z.ai, GLM, Groq ou OpenRouter.',
+        },
+        { status: 503 },
       )
     }
 
