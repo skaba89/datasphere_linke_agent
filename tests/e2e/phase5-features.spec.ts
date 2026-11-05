@@ -23,16 +23,11 @@ test.describe('Phase 5 — MCP Server + Chrome Extension endpoint', () => {
   // ------------------------------------------------------------
   // 1. MCP Server — structure + auth
   // ------------------------------------------------------------
-  test('mcp: GET returns server info', async ({ request }) => {
+  test('mcp: GET returns 405 because SSE streaming is not supported', async ({ request }) => {
     const res = await request.get('/api/mcp')
-    expect(res.status()).toBe(200)
-    const data = await res.json()
-    expect(data.server).toBeDefined()
-    expect(data.server.name).toBe('datasphere-mcp')
-    expect(data.protocol).toContain('JSON-RPC')
-    expect(data.methods).toContain('initialize')
-    expect(data.methods).toContain('tools/list')
-    expect(data.methods).toContain('tools/call')
+    expect(res.status()).toBe(405)
+    expect(res.headers()['allow']).toBe('POST')
+    expect(await res.text()).toBe('')
   })
 
   test('mcp: POST without auth returns 401', async ({ request }) => {
