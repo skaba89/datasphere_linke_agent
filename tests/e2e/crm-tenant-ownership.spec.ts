@@ -52,9 +52,10 @@ test('CRM message references and prospect cursors are tenant scoped', async ({ r
     expect(ownMessage.status()).toBe(201)
     expect((await ownMessage.json()).data.status).toBe('draft')
 
-    // Cursor encoding follows the same encoding function as the live pagination API.
-    const { encodeCursor } = await import('../../src/lib/pagination')
-    const invalidPage = await request.get(`/api/prospects?cursor=${encodeURIComponent(encodeCursor(prospectIds[1]))}`, {
+    // The API cursor format is base64url("cursor:" + id).
+    // Encode directly to avoid importing a TS module dynamically in Playwright.
+    const foreignCursor = Buffer.from(`cursor:${prospectIds[1]}`, 'utf-8').toString('base64url')
+    const invalidPage = await request.get(`/api/prospects?cursor=${encodeURIComponent(foreignCursor)}`, {
       headers: { Cookie: cookies[0] },
     })
     expect(invalidPage.status()).toBe(400)
