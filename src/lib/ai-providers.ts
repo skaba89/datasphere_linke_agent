@@ -484,9 +484,8 @@ async function callZAI(params: ChatParams): Promise<ChatResult> {
 }
 
 // ============================================================
-// Provider 6 : z-ai-web-dev-sdk — TOUJOURS DISPONIBLE (dernier recours)
-// Ce SDK est embarqué dans le projet et fonctionne SANS clé API.
-// Il utilise l'infrastructure Z.ai interne du sandbox.
+// Provider 6 : z-ai-web-dev-sdk — uniquement en sandbox explicitement configuré.
+// En production, il requiert un fichier .z-ai-config et ne peut pas être utilisé comme fallback universel.
 // ============================================================
 async function callZAISdk(params: ChatParams): Promise<ChatResult> {
   const zai = await ZAISdk.create()
@@ -510,6 +509,10 @@ async function callZAISdk(params: ChatParams): Promise<ChatResult> {
 // Utilise le 1er provider disponible (ordre de priorité)
 // ⭐ Si le provider principal échoue, fallback vers le suivant
 // ============================================================
+export function isZAISdkFallbackEnabled(): boolean {
+  return process.env.NODE_ENV !== 'production' && process.env.ENABLE_ZAI_SDK_FALLBACK === 'true'
+}
+
 export async function generateChat(params: ChatParams): Promise<ChatResult> {
   // Construire la liste des providers disponibles par ordre de priorité
   // ⭐ ZAI (api.z.ai international) en PRIORITÉ si configuré
@@ -525,11 +528,11 @@ export async function generateChat(params: ChatParams): Promise<ChatResult> {
   if (process.env.GROQ_API_KEY) providers.push({ name: 'groq', fn: callGroq })
   // 5. OpenRouter
   if (process.env.OPENROUTER_API_KEY) providers.push({ name: 'openrouter', fn: callOpenRouter })
-  // 6. z-ai-web-dev-sdk — TOUJOURS DISPONIBLE (dernier recours, sans clé API)
-  providers.push({ name: 'z-ai-sdk', fn: callZAISdk })
+  // Le SDK de développement nécessite .z-ai-config : opt-in uniquement hors production.
+  if (isZAISdkFallbackEnabled()) providers.push({ name: 'z-ai-sdk', fn: callZAISdk })
 
   if (providers.length === 0) {
-    throw new Error('Aucun provider IA configuré. Définissez au moins GEMINI_API_KEY.')
+    throw new Error('Aucun fournisseur IA configuré. Définissez GEMINI_API_KEY, ZAI_API_KEY, GLM_API_KEY, GROQ_API_KEY ou OPENROUTER_API_KEY sur le serveur.')
   }
 
   // Essayer chaque provider en séquence jusqu'à ce qu'un réussisse
@@ -546,7 +549,7 @@ export async function generateChat(params: ChatParams): Promise<ChatResult> {
   }
 
   // Tous les providers ont échoué
-  throw new Error(`Tous les providers IA ont échoué. Dernière erreur: ${lastError?.message || 'inconnue'}`)
+  throw new Error(`Les fournisseurs IA configurés ont échoué. Vérifiez les clés, les quotas et les modèles sur le serveur. Dernière erreur: ${lastError?.message || 'inconnue'}`)
 }
 
 // ============================================================
@@ -559,7 +562,7 @@ export function getAvailableProviders(): string[] {
   if (process.env.GLM_API_KEY) providers.push('glm')
   if (process.env.GROQ_API_KEY) providers.push('groq')
   if (process.env.OPENROUTER_API_KEY) providers.push('openrouter')
-  providers.push('z-ai-sdk') // toujours disponible (fallback sans clé)
+  if (isZAISdkFallbackEnabled()) providers.push('z-ai-sdk')
   return providers
 }
 
