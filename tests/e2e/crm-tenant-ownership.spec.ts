@@ -52,7 +52,6 @@ test('CRM message references and prospect cursors are tenant scoped', async ({ r
     expect(ownMessage.status()).toBe(201)
     expect((await ownMessage.json()).data.status).toBe('draft')
 
-    const foreignCursor = Buffer.from(prospectIds[1]).toString('base64url')
     // Cursor encoding follows the same encoding function as the live pagination API.
     const { encodeCursor } = await import('../../src/lib/pagination')
     const invalidPage = await request.get(`/api/prospects?cursor=${encodeURIComponent(encodeCursor(prospectIds[1]))}`, {
