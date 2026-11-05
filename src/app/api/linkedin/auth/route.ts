@@ -93,7 +93,7 @@ export async function POST(request: Request) {
 
     const { code, state } = await request.json()
     if (!code || !state) return NextResponse.json({ success: false, error: 'Code et state requis' }, { status: 400 })
-    if (!verifyLinkedInState(state, userId)) return NextResponse.json({ success: false, error: 'State OAuth invalide ou expiré' }, { status: 400 })
+    if (!(await verifyLinkedInState(state, userId))) return NextResponse.json({ success: false, error: 'State OAuth invalide ou expiré' }, { status: 400 })
 
     const clientId = process.env.LINKEDIN_CLIENT_ID!
     const clientSecret = process.env.LINKEDIN_CLIENT_SECRET!

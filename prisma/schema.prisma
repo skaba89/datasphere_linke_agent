@@ -656,3 +656,14 @@ model EngagementMetric {
   @@index([userId])
   @@index([date])
 }
+
+
+/// Shared, single-use LinkedIn OAuth state nonces (across all app instances).
+/// Periodically remove expired rows with a maintenance job.
+model OAuthConsumedState {
+  nonceHash String   @id @db.VarChar(64)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}

@@ -31,7 +31,7 @@ export async function GET(request: Request) {
   }
 
   const userId = await getCurrentUserId()
-  if (!userId || !verifyLinkedInState(state, userId)) {
+  if (!userId || !(await verifyLinkedInState(state, userId))) {
     return NextResponse.redirect(new URL('/?linkedin_error=invalid_state', appUrl))
   }
 
